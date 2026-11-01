@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 让某一格出现方块/平台。调用方只管要结果,过程全在里面解决。
 	//

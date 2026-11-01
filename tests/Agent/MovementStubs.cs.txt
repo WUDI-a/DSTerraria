@@ -3,7 +3,7 @@ using System.Linq;
 using Microsoft.Xna.Framework;
 using Terraria;
 
-namespace TerraBlind.JevariaCombat;
+namespace DSTerraria.JevariaCombat;
 
 public class GameSensor
 {

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     // 事件层:只记"发生了什么",一条一行,人直接读。逐帧追踪归 DiagLog(默认关)。
     // 分文件是因为同类事件要跨时间聚合。sentinel 的 132 次触发散在 132 个 runs 文件里,规律就看不出来。

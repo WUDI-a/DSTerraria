@@ -4,7 +4,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 public class BackgroundAutomation : ModSystem
 {
@@ -23,7 +23,7 @@ public class BackgroundAutomation : ModSystem
         if (!cursor.TryGotoNext(MoveType.After,
             instruction => instruction.MatchCall<Player>("ResetControls"),
             instruction => instruction.MatchLdsfld<Main>("hasFocus")))
-            throw new InvalidOperationException("TerraBlind 未找到后台自动操作的输入入口。");
+            throw new InvalidOperationException("DSTerraria 未找到后台自动操作的输入入口。");
         cursor.EmitLdarg0();
         cursor.EmitDelegate<Func<bool, Player, bool>>(Apply);
         Installed = true;

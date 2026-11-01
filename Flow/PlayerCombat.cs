@@ -2,7 +2,7 @@ using System;
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 public static class PlayerCombat
 {

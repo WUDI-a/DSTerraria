@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     public enum NavState { Idle, Move, Fall, Jump, JumpAlign, Bridge, BridgeFall, PillarAlign, Pillar, MineAlign, Mine, PlatformWalk, JumpX, JumpY, Done, Failed }
 

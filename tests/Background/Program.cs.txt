@@ -1,7 +1,7 @@
 using System;
 using System.Reflection;
 using Terraria;
-using TerraBlind;
+using DSTerraria;
 
 class Program
 {
@@ -65,7 +65,7 @@ class Program
     }
 }
 
-namespace TerraBlind
+namespace DSTerraria
 {
     public class Config { public static Config I = new(); public bool AiClient; }
     public static class AgentNetwork { public static bool CanAutomate => true; }

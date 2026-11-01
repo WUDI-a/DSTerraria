@@ -5,7 +5,7 @@ using Terraria;
 using Terraria.ModLoader;
 using Terraria.UI.Chat;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     // Receding-horizon visualization, shows the DECISION at the current node, so the algorithm is legible and a
     // stuck can be diagnosed by eye. Every step the planner asks "from here, which action?"; this draws that:

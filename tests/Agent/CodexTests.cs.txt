@@ -7,7 +7,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using TerraBlind;
+using DSTerraria;
 
 static class CodexTests
 {
@@ -201,7 +201,7 @@ static class CodexTests
             calls++; Console.WriteLine("CODEX_SMOKE tool=get_state mock_world=true");
             return Task.FromResult("{\"equipment\":{\"items\":[{\"name\":\"Wood\",\"stack\":23}]}}");
         }
-        string cwd = Path.Combine(Path.GetTempPath(), "TerraBlindCodexSmoke");
+        string cwd = Path.Combine(Path.GetTempPath(), "DSTerrariaCodexSmoke");
         const string system = "你是 Terraria 队友。只使用提供的游戏工具，只简短回答，不使用其他能力。";
         await agent.RunAsync("必须调用 get_state 查看背包，然后只回答木材数量。", "", cwd, "", system, Tools, Execute,
             text => { replies.Add(text); Console.WriteLine("CODEX_SMOKE reply=" + text); }, timeout.Token);

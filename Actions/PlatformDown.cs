@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// PLATFORM DOWN。踩着平台一格一格往下降。
 	//

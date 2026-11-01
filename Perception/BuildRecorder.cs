@@ -4,7 +4,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     // SEMANTIC build recorder, records the FINAL STRUCTURE, not the build process. Detection is WORLD DIFF for BOTH
     // directions (symmetric): each frame, compare the watched box to last frame. A cell that gained a tile → PLACE

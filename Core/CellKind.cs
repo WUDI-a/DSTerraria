@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 一格坐标只有四种可能,这是全项目唯一的一份判据。
 	//

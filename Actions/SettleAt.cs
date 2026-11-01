@@ -2,7 +2,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// SETTLE, come to a full stop with the player CENTERED on a target column, without overshooting off it.
 	//

@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// Eye, B-path: turn continuous reality into DISCRETE events that are worth waking the brain (LLM). Runs every
 	// frame off PostUpdateEverything, compares a few salient world quantities against last frame, and only PushEvents

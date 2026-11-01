@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// HELL DECK。照着 HellLine 那条线逐格铺桥面。
 	//

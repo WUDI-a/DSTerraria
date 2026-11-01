@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// COMMITMENT, the fix for greedy's short memory.
 	//

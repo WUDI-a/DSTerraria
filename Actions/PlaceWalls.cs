@@ -3,7 +3,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// PLACE-WALLS, place background walls at an ORDERED list of cells, strictly in order (one fully done before the
 	// next starts). Order matters here: vanilla's wall merge/spread depends on placement order, so the caller's

@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Terraria;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 public static partial class PvpDuel
 {

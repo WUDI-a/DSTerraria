@@ -2,7 +2,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// BRIDGE, lay a horizontal run N cells long, in a given direction, from where the player stands.
 	//

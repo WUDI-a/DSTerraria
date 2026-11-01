@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// STUCK SNAPSHOT, the whole decision situation, written to disk the moment a loop is detected.
 	//

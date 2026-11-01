@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 public sealed class GameWoodHarvest : IWoodHarvestWorld
 {

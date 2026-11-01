@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 鼠标瞄准只有这一份。
 	//

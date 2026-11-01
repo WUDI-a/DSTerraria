@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 背包满了箱子就掏不动。vanilla 的 LootAll 把塞不下的原样写回箱子里,
 	// 好东西看着就在眼前却拿不走。腾位置的办法是【删掉没用的】。

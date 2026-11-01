@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// Jev 判断的环形缓冲。【游戏线程写、HTTP 线程读】,所以全程锁住
 	public static class JevLog

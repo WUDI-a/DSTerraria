@@ -1,8 +1,8 @@
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
-	public class TerraBlind : Mod
+	public class DSTerraria : Mod
 	{
 		public override void HandlePacket(System.IO.BinaryReader reader, int whoAmI)
 			=> AgentNetwork.Receive(reader, whoAmI);

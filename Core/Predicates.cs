@@ -3,7 +3,7 @@ using System.Text;
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// PREDICATES, the eye's conclusions. Everything here is a pure query: it reads the world and answers a question,
 	// with no side effects and no frame state. Actions ask these instead of each re-deriving "can I stand there?" in

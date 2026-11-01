@@ -5,7 +5,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	public class AgentNetwork : ModSystem
 	{
@@ -24,14 +24,14 @@ namespace TerraBlind
 		static void Log(string text)
 		{
 			DiagLog.Write("[ai-net] " + text);
-			ModContent.GetInstance<TerraBlind>().Logger.Info("[ai-net] " + text);
+			ModContent.GetInstance<DSTerraria>().Logger.Info("[ai-net] " + text);
 		}
 		public static bool CanAutomate => !Main.dedServ
 			&& (Main.netMode == NetmodeID.SinglePlayer || Config.I.AiClient);
 
 		static ModPacket Packet(Message type)
 		{
-			var packet = ModContent.GetInstance<TerraBlind>().GetPacket();
+			var packet = ModContent.GetInstance<DSTerraria>().GetPacket();
 			packet.Write((byte)type);
 			return packet;
 		}

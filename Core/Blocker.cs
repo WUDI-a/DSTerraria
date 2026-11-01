@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 做不成一件事的原因。原语报失败必须交出这个 --- reason 字符串只能给人看,
 	// 不能给代码判断,于是每处失败都各写一套补救。

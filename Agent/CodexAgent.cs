@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 public sealed class CodexConnection : IDisposable
 {
@@ -171,7 +171,7 @@ public sealed class CodexAgent : IDisposable
         {
             await _rpc.Request("initialize", new JsonObject
             {
-                ["clientInfo"] = new JsonObject { ["name"] = "terrablind", ["title"] = "TerraBlind", ["version"] = "1.0" },
+                ["clientInfo"] = new JsonObject { ["name"] = "terrablind", ["title"] = "DSTerraria", ["version"] = "1.0" },
                 ["capabilities"] = new JsonObject { ["experimentalApi"] = true }
             }, deadline.Token);
             await _rpc.Send(new JsonObject { ["method"] = "initialized" }, deadline.Token);

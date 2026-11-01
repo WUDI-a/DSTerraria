@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     public static class DiagLog
     {

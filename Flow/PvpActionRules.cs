@@ -2,7 +2,7 @@ using Terraria;
 using Terraria.ModLoader;
 using Terraria.ObjectData;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 public class PvpActionRules : GlobalItem
 {

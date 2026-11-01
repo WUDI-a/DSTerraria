@@ -3,7 +3,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     public static class PhysicsRecorder
     {

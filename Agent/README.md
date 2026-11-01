@@ -1,6 +1,6 @@
 # 内置 Agent
 
-默认使用本机 Codex 后端。先安装 Codex CLI 并执行 `codex login`；mod 在首次收到任务时自动启动 `codex app-server`，不需要 Python 或额外终端窗口。在模组配置 → TerraBlind → 内置 Agent 中：
+默认使用本机 Codex 后端。先安装 Codex CLI 并执行 `codex login`；mod 在首次收到任务时自动启动 `codex app-server`，不需要 Python 或额外终端窗口。在模组配置 → DSTerraria → 内置 Agent 中：
 
 - 使用 Codex 后端：默认开启。
 - Codex 可执行文件路径：留空自动寻找；找不到时填写完整路径。macOS 会优先查找常见安装位置，避开 HUD 启动包装器。

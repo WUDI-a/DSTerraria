@@ -3,7 +3,7 @@
 	<Import Project="..\tModLoader.targets" />
 
 	<PropertyGroup>
-		<AssemblyName>TerraBlind</AssemblyName>
+		<AssemblyName>DSTerraria</AssemblyName>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
 

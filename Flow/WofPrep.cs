@@ -1,7 +1,7 @@
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 桥搭完之后这一整套:等爆破专家自己传送回房 → 买雷管 → 换向导住进来 → 走远一个屏幕 →
 	// 把向导捅进岩浆 → 等肉山。
@@ -631,7 +631,7 @@ namespace TerraBlind
 						if (!WofFight.On) WofFight.Toggle();
 						Outcome = "done"; Phase = Ph.Done;
 						DiagLog.Write("[wof] 肉山出来了,交给 WofFight");
-						Chatter.Say("[TerraBlind] 肉山出来了,开打", 120, 255, 120);
+						Chatter.Say("[DSTerraria] 肉山出来了,开打", 120, 255, 120);
 						return;
 					}
 					if (_frames % 300 == 1) DiagLog.Write("[wof] 等肉山");

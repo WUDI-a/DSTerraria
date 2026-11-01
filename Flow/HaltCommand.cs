@@ -1,6 +1,6 @@
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// /halt, 一条命令停掉所有还在跑的东西。
 	// /start stop 只停主链,地狱段(桥/铺面/肉山)和底下的原语照跑,人还会自己动

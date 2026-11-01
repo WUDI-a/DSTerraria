@@ -1,5 +1,5 @@
 using System;
-using TerraBlind;
+using DSTerraria;
 using Game = Terraria.Main;
 
 static class HistoryTests

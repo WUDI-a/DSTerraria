@@ -2,7 +2,7 @@ using Microsoft.Xna.Framework.Input;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 // AI 接管时把游戏指针藏起来。瞄准本身是写 Main.mouseX/Y 的功能,藏的只是那支箭的贴图。
 // 恢复条件:真实鼠标一动、开背包、开聊天、回主菜单,立刻还原,人随时能接管。

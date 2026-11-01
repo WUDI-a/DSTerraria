@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// THE FAST EYE ON PROGRESS. Stuck is an expectation violation, and every signal needed to see it is readable
 	// every frame: body position, the field's H, mining damage, the tiles around the body. A human notices "I'm
@@ -77,7 +77,7 @@ namespace TerraBlind
 			StateSpacePlanner.StopNav();
 			_nudgeDir = _nudgeDir == 0 ? OpenDir(p, cx, cy) : -_nudgeDir;
 			_nudgeLeft = NudgeTicks;
-			Chatter.Say($"[TerraBlind] sentinel: flat {FlatWindow} ticks — safe step {(_nudgeDir > 0 ? "right" : "left")} ({_anomalies}/{GiveUpAnomalies})");
+			Chatter.Say($"[DSTerraria] sentinel: flat {FlatWindow} ticks — safe step {(_nudgeDir > 0 ? "right" : "left")} ({_anomalies}/{GiveUpAnomalies})");
 			return false;
 		}
 

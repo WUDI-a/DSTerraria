@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 真实地形挡住人怎么办。挖开。地狱要塞的墙、矿脉、山体横在路上时,这是唯一的解法。
 	//

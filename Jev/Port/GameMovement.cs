@@ -4,7 +4,7 @@ using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind.JevariaCombat;
+namespace DSTerraria.JevariaCombat;
 
 public sealed class GameMovement : IMovementDriver
 {
@@ -349,7 +349,7 @@ public sealed class GameMovement : IMovementDriver
         _mountRiseSeen = false;
         _mountFallSeen = false;
         _mountStartTick = Main.GameUpdateCount;
-        global::TerraBlind.DiagLog.Write(
+        global::DSTerraria.DiagLog.Write(
             $"vertical mount: type={mountType}; tick={Main.GameUpdateCount}; direction={(down ? "down" : "up")}; " +
             $"velocity_before={entrySpeed:0.00}; velocity_after={player.velocity.Y:0.00}");
         return true;

@@ -1,7 +1,7 @@
 using System.Reflection;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     // DragonLens integration: comment out this entire class when not debugging
     public static class FreezeSystem

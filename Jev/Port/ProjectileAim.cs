@@ -2,7 +2,7 @@ using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind.JevariaCombat;
+namespace DSTerraria.JevariaCombat;
 
 public sealed class ProjectileAim : IAttackDriver
 {

@@ -1,4 +1,4 @@
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 现在的固定瀑布顺序,照抄 RecedingNav 里那一段。它是 baseline:
 	// Jev 接上之后拿它当对照组,而没拿到 key 之前整条链的行为和现在一字不差

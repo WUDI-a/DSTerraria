@@ -4,7 +4,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     public class MazeWand : ModItem
     {
@@ -96,8 +96,8 @@ namespace TerraBlind
         public static void ToggleNav()
         {
             DiagLog.Write("[maze-nav] J pressed");
-            if (RecedingNav.Active) { RecedingNav.Stop(); Chatter.Say("[TerraBlind] receding nav OFF"); return; }
-            if (!_p2.HasValue) { DiagLog.Write("[maze-nav] J → no point2 (goal) set"); Chatter.Say("[TerraBlind] set point2 (right-click) first"); return; }
+            if (RecedingNav.Active) { RecedingNav.Stop(); Chatter.Say("[DSTerraria] receding nav OFF"); return; }
+            if (!_p2.HasValue) { DiagLog.Write("[maze-nav] J → no point2 (goal) set"); Chatter.Say("[DSTerraria] set point2 (right-click) first"); return; }
             DiagLog.Write($"[maze-nav] J → receding toward p2=({_p2.Value.x},{_p2.Value.y})");
             RecedingNav.Start(_p2.Value.x, _p2.Value.y);
         }

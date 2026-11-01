@@ -4,9 +4,9 @@ using System.Text;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
-using Port = TerraBlind.JevariaCombat;
+using Port = DSTerraria.JevariaCombat;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// Jev 说往哪躲
 	public enum Dir { Up, UpRight, Right, DownRight, Down, DownLeft, Left, UpLeft, Stay }
@@ -321,7 +321,7 @@ namespace TerraBlind
 			string line = $"战斗小结 {result} 用时{secs:0.0}秒 被打中{_fightHits}次{_fightHitHp}血 持续掉血{_fightDotHp}血"
 				+ $" 打出{_fightBossDmg} 平均秒伤{(secs > 0 ? _fightBossDmg / secs : 0):0}";
 			DiagLog.Write("[dodge] " + line);
-			Main.NewText("[TerraBlind] " + line, 255, 220, 120);
+			Main.NewText("[DSTerraria] " + line, 255, 220, 120);
 		}
 
 		// 每次掉血记一行,带最近的 NPC 和弹幕

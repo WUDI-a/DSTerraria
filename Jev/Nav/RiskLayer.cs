@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 选边时的风险加价。默认关:它改的是调了几个月的热路径,要开就明着开
 	public static class RiskLayer

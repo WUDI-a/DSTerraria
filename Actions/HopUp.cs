@@ -2,7 +2,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// HOP UP, jump and end up standing on the surface directly above. Used to get off the top of a rope onto the
 	// platform just placed above it: on a rope the player hangs, and the platform is passed through from below, so

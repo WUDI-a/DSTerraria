@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// http://127.0.0.1:17878/jev 。页面自己每秒拉一次 /jev_log,不用手动刷
 	public static class JevPage
@@ -35,7 +35,7 @@ namespace TerraBlind
 
 		// 单文件页面,不引任何外部资源:游戏机器上未必有网,而且断网时更需要看这个
 		public static string Html() => @"<!doctype html><html><head><meta charset=""utf-8"">
-<title>TerraBlind / Jev</title><style>
+<title>DSTerraria / Jev</title><style>
 body{background:#14161a;color:#d8dee9;font:13px ui-monospace,Menlo,Consolas,monospace;margin:0;padding:16px}
 h1{font-size:15px;margin:0 0 4px;font-weight:600}
 .sub{color:#7a8595;margin-bottom:14px}

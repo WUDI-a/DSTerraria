@@ -2,7 +2,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// DROP, fall down through the platform underfoot to the solid ground below. Standing on a platform, holding
 	// controlDown makes vanilla drop the player through it (Player.cs `fallThrough = controlDown`, instant). Used to

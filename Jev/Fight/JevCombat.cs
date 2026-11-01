@@ -2,7 +2,7 @@ using System.Net.Http;
 using System.Text;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 真正问 Jev 的 brain。【后台发请求,主线程拿上一次的结果】-- 形状照 TrapEscape,
 	// 游戏主线程等 70ms 就是掉帧
@@ -30,7 +30,7 @@ namespace TerraBlind
 		public static string EnvPath => System.IO.Path.Combine(ModSourceDir, ".env");
 
 		// Main.SavePath 就是 tModLoader 目录,LogRoot 也用它。别自己拼家目录
-		static string ModSourceDir => System.IO.Path.Combine(Main.SavePath, "ModSources", "TerraBlind");
+		static string ModSourceDir => System.IO.Path.Combine(Main.SavePath, "ModSources", "DSTerraria");
 
 		// 配置 > .env > 环境变量 > 家目录文件。【配置不进缓存】:游戏里随时能改,缓存了就要重开才生效
 		public static string Key()

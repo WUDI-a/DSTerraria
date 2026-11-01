@@ -9,10 +9,10 @@ using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
-using Port = TerraBlind.JevariaCombat;
+using Port = DSTerraria.JevariaCombat;
 using V = System.Numerics.Vector2;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 public static partial class PvpDuel
 {

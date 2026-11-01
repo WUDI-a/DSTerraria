@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 【顺路采集】。赶路的全程扫身边有没有箱子,值得就拐过去捡了再走 ---
 	// python 那份的注释写得很清楚:"这是这条路上捡到大部分东西的原因"。

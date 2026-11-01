@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     // Sub-tile horizontal alignment of the player hitbox relative to its tile column cx.
     // L: hitbox spans (cx-1, cx), player flush left

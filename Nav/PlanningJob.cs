@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     // Async wrapper around PathPlanner.PlanTo to keep the main thread responsive.
     // Latest-request-wins: a new Request supersedes any pending one (we just ignore the older result on arrival).

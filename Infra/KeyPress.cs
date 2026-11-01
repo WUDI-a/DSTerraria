@@ -5,7 +5,7 @@ using Terraria;
 using Terraria.GameInput;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 按按键名往 KeyStatus 里写,和键盘输入并存:只写 true,不写 false
 	public class KeyPress : ModSystem

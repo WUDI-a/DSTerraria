@@ -2,7 +2,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	public class StateSnapshotPlayer : ModPlayer
 	{
@@ -54,18 +54,18 @@ namespace TerraBlind
 				// 跨不了沟翻不了墙,那是寻路的活。差几格才交给 Ph.Lift 精调。
 				if (gapX > 6 && ++_houseNavTries <= 3)
 				{
-					Chatter.Say($"[TerraBlind] 离开工位还差 {gapX} 格,再走一次({_houseNavTries}/3)", 255, 220, 120);
+					Chatter.Say($"[DSTerraria] 离开工位还差 {gapX} 格,再走一次({_houseNavTries}/3)", 255, 220, 120);
 					RecedingNav.Start(scol, HouseBuilder.LadderFootRow(hx, hy));
 				}
 				else
 				{
 					_pendingHouse = null; _houseNavTries = 0;
 					if (gapX > 6)
-						Chatter.Say($"[TerraBlind] 走不到开工位({scol},{hy + 1}),还差 {gapX} 格", 255, 120, 120);
+						Chatter.Say($"[DSTerraria] 走不到开工位({scol},{hy + 1}),还差 {gapX} 格", 255, 120, 120);
 					else if (HouseBuilder.Start(4, 1, hx, hy, out string whyH))
-						Chatter.Say($"[TerraBlind] 到了,开工盖房 ({hx},{hy})", 120, 255, 120);
+						Chatter.Say($"[DSTerraria] 到了,开工盖房 ({hx},{hy})", 120, 255, 120);
 					else
-						Chatter.Say($"[TerraBlind] 开工失败:{whyH}", 255, 120, 120);
+						Chatter.Say($"[DSTerraria] 开工失败:{whyH}", 255, 120, 120);
 				}
 			}
 			// 第一格放好了 → 直接开工盖房子。HouseBuilder.Ph.Lift 本来就是"站到那个悬空的左下角上",
@@ -81,18 +81,18 @@ namespace TerraBlind
 					// 【必须写日志】。原来只 Chatter.Say,而录视频时 Diag=false ---
 					// 房子没开工、屏幕和日志都一个字没有,只能靠猜
 					DiagLog.Write($"[reach-test] 没站上桥起点({sx2},{sy2}):{BridgeStart.Outcome}/{BridgeStart.Reason},房子起不了");
-					Chatter.Say($"[TerraBlind] 没站上桥起点:{BridgeStart.Reason}", 255, 120, 120);
+					Chatter.Say($"[DSTerraria] 没站上桥起点:{BridgeStart.Reason}", 255, 120, 120);
 				}
 				else
 				{
 					int hdir2 = ActExecutor.OriginCx(Main.LocalPlayer) < Main.maxTilesX / 2 ? 1 : -1;
 					DiagLog.Write($"[reach-test] 第一格好了({sx2},{sy2}),盖房子 dir={hdir2}");
 					if (HouseBuilder.Start(1, hdir2, sx2, sy2, out string hw2))
-					{ _hellHouseStarted = true; Chatter.Say($"[TerraBlind] 爬上桥起点并盖房 ({sx2},{sy2})", 120, 255, 120); }
+					{ _hellHouseStarted = true; Chatter.Say($"[DSTerraria] 爬上桥起点并盖房 ({sx2},{sy2})", 120, 255, 120); }
 					else
 					{
 						DiagLog.Write($"[reach-test] 开不了工:{hw2}");
-						Chatter.Say($"[TerraBlind] 开不了工:{hw2}", 255, 120, 120);
+						Chatter.Say($"[DSTerraria] 开不了工:{hw2}", 255, 120, 120);
 					}
 				}
 			}
@@ -114,11 +114,11 @@ namespace TerraBlind
 					DiagLog.Write($"[reach-test] 房子好了,开始铺桥 从i={from}/{line.Count}");
 					if (DeckBuilder.Start("", line, from, out string dw))
 					{
-						Chatter.Say($"[TerraBlind] 铺桥 {line.Count - from}格", 120, 255, 120);
+						Chatter.Say($"[DSTerraria] 铺桥 {line.Count - from}格", 120, 255, 120);
 						_wofAfterDeck = true;
 					}
 					else
-						Chatter.Say($"[TerraBlind] 铺不了:{dw}", 255, 120, 120);
+						Chatter.Say($"[DSTerraria] 铺不了:{dw}", 255, 120, 120);
 				}
 			}
 			var site = _site;
@@ -130,7 +130,7 @@ namespace TerraBlind
 				{
 					int d = System.Math.Abs(site.Bx - site.Fx) + System.Math.Abs(site.By - site.Fy);
 					Predicates.VisualizeBox(site.Bx, site.By, HW, HH, $"house {HW}x{HH}");
-					Chatter.Say($"[TerraBlind] 房址 左下角({site.Bx},{site.By}) 右上角({site.Bx + HW - 1},{site.By - HH + 1}) 离你{d}格", 120, 255, 120);
+					Chatter.Say($"[DSTerraria] 房址 左下角({site.Bx},{site.By}) 右上角({site.Bx + HW - 1},{site.By - HH + 1}) 离你{d}格", 120, 255, 120);
 					// 走过去,到了自己开工。nav 直接送到【开工站位】而不是房址本身:
 					// 房址那格是要放出来的,还不存在;站位是隔两列、下面一行的实地。
 					_pendingHouse = (site.Bx, site.By);
@@ -139,23 +139,23 @@ namespace TerraBlind
 				else
 				{
 					int blocked = Predicates.VisualizeBox(site.Fx, site.Fy, HW, HH, "NO SITE (from here)");
-					Chatter.Say($"[TerraBlind] 附近没有 {HW}x{HH} 的空位(扫了{site.Scanned}格)。画的是你脚下这个框,红的{blocked}格挡着。", 255, 120, 120);
+					Chatter.Say($"[DSTerraria] 附近没有 {HW}x{HH} 的空位(扫了{site.Scanned}格)。画的是你脚下这个框,红的{blocked}格挡着。", 255, 120, 120);
 				}
 			}
-			if (TerraBlind.ToggleManual != null && TerraBlind.ToggleManual.JustPressed)
+			if (DSTerraria.ToggleManual != null && DSTerraria.ToggleManual.JustPressed)
 				Manual.Toggle();
-			if (TerraBlind.ToggleMazeNav != null && TerraBlind.ToggleMazeNav.JustPressed)
+			if (DSTerraria.ToggleMazeNav != null && DSTerraria.ToggleMazeNav.JustPressed)
 				MazeWand.ToggleNav();
-			if (TerraBlind.ToggleRecedingNav != null && TerraBlind.ToggleRecedingNav.JustPressed)
+			if (DSTerraria.ToggleRecedingNav != null && DSTerraria.ToggleRecedingNav.JustPressed)
 				RecedingNav.Toggle();
 			// M 画出【贪心一定卡死的地方】:红=局部极小,橙=会被吸进去的盆地。按住 Shift 清图层
-			if (TerraBlind.ShowMinima != null && TerraBlind.ShowMinima.JustPressed)
+			if (DSTerraria.ShowMinima != null && DSTerraria.ShowMinima.JustPressed)
 			{
-				if (Main.keyState.PressingShift()) { Trap.Reset(); Chatter.Say("[TerraBlind] 卡点记录已清"); }
+				if (Main.keyState.PressingShift()) { Trap.Reset(); Chatter.Say("[DSTerraria] 卡点记录已清"); }
 				else Trap.Report();
 			}
 			// H 找一次房址并画出来:绿=空,红=被占。找不到就画脚下那个框,直接看出被什么挡的。
-			if (TerraBlind.ShowHouseSite != null && TerraBlind.ShowHouseSite.JustPressed)
+			if (DSTerraria.ShowHouseSite != null && DSTerraria.ShowHouseSite.JustPressed)
 			{
 				var hp = Main.LocalPlayer;
 				int fx = ActExecutor.OriginCx(hp), fy = ActExecutor.OriginCy(hp);
@@ -173,12 +173,12 @@ namespace TerraBlind
 				});
 			}
 			// B 测试铺路:朝面朝的方向铺 30 格。再按一次停。
-			if (TerraBlind.TestBridge != null && TerraBlind.TestBridge.JustPressed)
+			if (DSTerraria.TestBridge != null && DSTerraria.TestBridge.JustPressed)
 			{
 				if (BridgeBuilder.IsRunning)
 				{
 					BridgeBuilder.Stop();
-					Chatter.Say($"[TerraBlind] 铺路停止,已铺 {BridgeBuilder.Placed}", 255, 200, 120);
+					Chatter.Say($"[DSTerraria] 铺路停止,已铺 {BridgeBuilder.Placed}", 255, 200, 120);
 				}
 				else
 				{
@@ -186,9 +186,9 @@ namespace TerraBlind
 					string bdir = bp.direction >= 0 ? "right" : "left";
 					_bridgeStartTick = (int)Main.GameUpdateCount;
 					if (BridgeBuilder.Start(BridgeTestItem(bp), bdir, 30, out string bwhy))
-						Chatter.Say($"[TerraBlind] 铺路 {bdir} 30 格…", 120, 255, 120);
+						Chatter.Say($"[DSTerraria] 铺路 {bdir} 30 格…", 120, 255, 120);
 					else
-					{ _bridgeStartTick = 0; Chatter.Say($"[TerraBlind] 铺不了: {bwhy}", 255, 120, 120); }
+					{ _bridgeStartTick = 0; Chatter.Say($"[DSTerraria] 铺不了: {bwhy}", 255, 120, 120); }
 				}
 			}
 			// 铺完报一次用时。"边走边放"到底快多少,就看这个数。
@@ -196,65 +196,65 @@ namespace TerraBlind
 			{
 				int el = (int)Main.GameUpdateCount - _bridgeStartTick;
 				_bridgeStartTick = 0;
-				Chatter.Say($"[TerraBlind] 铺了 {BridgeBuilder.Placed} 格,{el} 帧 ({el / 60f:0.0}s, {BridgeBuilder.Placed * 60f / System.Math.Max(1, el):0.00} 格/秒) {BridgeBuilder.Outcome}", 200, 220, 255);
+				Chatter.Say($"[DSTerraria] 铺了 {BridgeBuilder.Placed} 格,{el} 帧 ({el / 60f:0.0}s, {BridgeBuilder.Placed * 60f / System.Math.Max(1, el):0.00} 格/秒) {BridgeBuilder.Outcome}", 200, 220, 255);
 				DiagLog.Write($"[bridge-test] placed={BridgeBuilder.Placed} frames={el} rate={BridgeBuilder.Placed * 60f / System.Math.Max(1, el):0.00}/s outcome={BridgeBuilder.Outcome}");
 			}
 
 			// N 测试单间:在脚下朝面朝方向盖 6 宽的单间。
-			if (TerraBlind.TestRoom != null && TerraBlind.TestRoom.JustPressed)
+			if (DSTerraria.TestRoom != null && DSTerraria.TestRoom.JustPressed)
 			{
 				if (HouseBuilder.IsRunning)
 				{
 					HouseBuilder.Stop();
-					Chatter.Say("[TerraBlind] 盖房已停", 255, 200, 120);
+					Chatter.Say("[DSTerraria] 盖房已停", 255, 200, 120);
 				}
 				else if (HouseBuilder.StartHere(1, Main.LocalPlayer.direction, out string rwhy))
-					Chatter.Say("[TerraBlind] 盖单间…", 120, 255, 120);
+					Chatter.Say("[DSTerraria] 盖单间…", 120, 255, 120);
 				else
-					Chatter.Say($"[TerraBlind] 盖不了: {rwhy}", 255, 120, 120);
+					Chatter.Say($"[DSTerraria] 盖不了: {rwhy}", 255, 120, 120);
 			}
 			// L 一键建桥:算线 → 竖降到桥面 → 横铺 170 格
-			if (TerraBlind.BuildHellBridge != null && TerraBlind.BuildHellBridge.JustPressed)
+			if (DSTerraria.BuildHellBridge != null && DSTerraria.BuildHellBridge.JustPressed)
 			{
-				if (HellBridge.IsRunning) { HellBridge.Stop(); Chatter.Say("[TerraBlind] 建桥停止"); }
+				if (HellBridge.IsRunning) { HellBridge.Stop(); Chatter.Say("[DSTerraria] 建桥停止"); }
 				else if (HellBridge.Start("94", out string hbwhy))
-					Chatter.Say("[TerraBlind] 开始建地狱桥", 120, 255, 120);
-				else Chatter.Say($"[TerraBlind] 建不了:{hbwhy}", 255, 120, 120);
+					Chatter.Say("[DSTerraria] 开始建地狱桥", 120, 255, 120);
+				else Chatter.Say($"[DSTerraria] 建不了:{hbwhy}", 255, 120, 120);
 			}
 			// O 测试:从脚下往下降 12 格,一路铺平台
-			if (TerraBlind.TestPlatDown != null && TerraBlind.TestPlatDown.JustPressed)
+			if (DSTerraria.TestPlatDown != null && DSTerraria.TestPlatDown.JustPressed)
 			{
-				if (PlatformDown.IsRunning) { PlatformDown.Stop(); Chatter.Say("[TerraBlind] 下降停止"); }
+				if (PlatformDown.IsRunning) { PlatformDown.Stop(); Chatter.Say("[DSTerraria] 下降停止"); }
 				else
 				{
 					int tgt = ActExecutor.OriginCy(Main.LocalPlayer) + 12;
 					if (PlatformDown.Start("94", tgt, out string dwhy))
-						Chatter.Say($"[TerraBlind] 往下铺平台 → {tgt}", 120, 255, 120);
-					else Chatter.Say($"[TerraBlind] 下不去:{dwhy}", 255, 120, 120);
+						Chatter.Say($"[DSTerraria] 往下铺平台 → {tgt}", 120, 255, 120);
+					else Chatter.Say($"[DSTerraria] 下不去:{dwhy}", 255, 120, 120);
 				}
 			}
 			// [ 单测"够得着就算到":算地狱线,导航去白点(开工点)。它悬空、站不上去,正是要试的情形。
-			if (TerraBlind.TestReachWork != null && TerraBlind.TestReachWork.JustPressed)
+			if (DSTerraria.TestReachWork != null && DSTerraria.TestReachWork.JustPressed)
 			{
-				if (RecedingNav.Active || BridgeStart.IsRunning) { StopHellRun(); Chatter.Say("[TerraBlind] 停止", 255, 200, 120); }
-				else if (!StartHellRun(out string hrw)) Chatter.Say($"[TerraBlind] {hrw}", 255, 120, 120);
+				if (RecedingNav.Active || BridgeStart.IsRunning) { StopHellRun(); Chatter.Say("[DSTerraria] 停止", 255, 200, 120); }
+				else if (!StartHellRun(out string hrw)) Chatter.Say($"[DSTerraria] {hrw}", 255, 120, 120);
 			}
 
 			// I 预览全程:主道→地狱的线 + 桥 + 房子,一次画完。人不动,纯看位置对不对。
-			if (TerraBlind.PreviewDescent != null && TerraBlind.PreviewDescent.JustPressed)
+			if (DSTerraria.PreviewDescent != null && DSTerraria.PreviewDescent.JustPressed)
 			{
 				bool pok = HttpServerSystem.PreviewDescentAndBridge("jungle", out string pmsg);
-				Chatter.Say("[TerraBlind] " + pmsg, pok ? (byte)120 : (byte)255, pok ? (byte)255 : (byte)120, 120);
+				Chatter.Say("[DSTerraria] " + pmsg, pok ? (byte)120 : (byte)255, pok ? (byte)255 : (byte)120, 120);
 			}
 			// U 画地狱桥线:从人所在列往地图中心方向算 170 格,青线=桥,金色=房子那 6 格。只算不搭。
-			if (TerraBlind.ShowHellLine != null && TerraBlind.ShowHellLine.JustPressed)
+			if (DSTerraria.ShowHellLine != null && DSTerraria.ShowHellLine.JustPressed)
 			{
 				var hp = Main.LocalPlayer;
 				int hbx = ActExecutor.OriginCx(hp);
 				int hdir = hbx < Main.maxTilesX / 2 ? 1 : -1;
 				var hres = HellLine.Compute(hbx, hdir);
 				if (!hres.Found)
-					Chatter.Say($"[TerraBlind] 地狱线算不出来：{hres.Why}", 255, 120, 120);
+					Chatter.Say($"[DSTerraria] 地狱线算不出来：{hres.Why}", 255, 120, 120);
 				else
 				{
 					var hvis = new System.Collections.Generic.List<(int, int, Microsoft.Xna.Framework.Color)>();
@@ -267,7 +267,7 @@ namespace TerraBlind
 					hvis.Add((hres.WorkX, hres.WorkY, new Microsoft.Xna.Framework.Color(255, 255, 255, 240)));
 					PathVisSystem.SetTiles(hvis, 7200);
 					string lavaTag = hres.HouseOnLava ? "岩浆上" : $"只有{hres.HouseLavaCols}/6列在岩浆上";
-					Chatter.Say($"[TerraBlind] 桥线 房子({hres.HouseX},{hres.HouseY}) 开工点({hres.WorkX},{hres.WorkY})锚{hres.WorkAnchor} {lavaTag} 要挖{hres.DigCells}格 代价{hres.Cost}", 120, 255, 120);
+					Chatter.Say($"[DSTerraria] 桥线 房子({hres.HouseX},{hres.HouseY}) 开工点({hres.WorkX},{hres.WorkY})锚{hres.WorkAnchor} {lavaTag} 要挖{hres.DigCells}格 代价{hres.Cost}", 120, 255, 120);
 					DiagLog.Write($"[hell-line] key start=({hres.StartX},{hres.StartY}) dir={hdir} house=({hres.HouseX},{hres.HouseY}) 岩浆列={hres.HouseLavaCols}/6 dig={hres.DigCells} cost={hres.Cost}");
 				}
 			}
@@ -381,7 +381,7 @@ namespace TerraBlind
 			_pendingStand = (rsx, rsy);
 			_pendingDeck = rr.Line;
 			DiagLog.Write($"[reach-test] 人({rbx},{ActExecutor.OriginCy(rp)}) → 桥起点({rsx},{rsy}) dir={rdir}");
-			Chatter.Say($"[TerraBlind] 去桥起点({rsx},{rsy})", 120, 255, 120);
+			Chatter.Say($"[DSTerraria] 去桥起点({rsx},{rsy})", 120, 255, 120);
 			return true;
 		}
 
@@ -658,8 +658,8 @@ namespace TerraBlind
 				{
 					int wdir = ActExecutor.OriginCx(Main.LocalPlayer) < Main.maxTilesX / 2 ? 1 : -1;
 					if (WofPrep.Start(HouseBuilder.TorchWx, HouseBuilder.TorchWy, wdir, out string ww))
-						Chatter.Say("[TerraBlind] 桥好了,开始肉山流程", 120, 255, 120);
-					else Chatter.Say($"[TerraBlind] 起不了:{ww}", 255, 120, 120);
+						Chatter.Say("[DSTerraria] 桥好了,开始肉山流程", 120, 255, 120);
+					else Chatter.Say($"[DSTerraria] 起不了:{ww}", 255, 120, 120);
 				}
 			}
 			if (WofPrep.IsRunning) WofPrep.Tick();

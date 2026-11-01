@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     // Full A* over an action graph. Nodes = standable cells (player box fits, has/can-make support). Edges = real
     // moves: walk / jump / fall / jump-place / bridge / dig. Edge existence uses O(1) coarse geometric checks

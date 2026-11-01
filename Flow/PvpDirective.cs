@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 public sealed class PvpDirective
 {

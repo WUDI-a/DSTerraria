@@ -1,6 +1,6 @@
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// /vis on|off, 调试图层的总开关。开关本身在模组配置里,这条命令只是游戏内的快捷方式:
 	// 录像时要临时关掉,不想为此退出去开配置界面

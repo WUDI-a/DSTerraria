@@ -1,36 +1,38 @@
-把泰拉瑞亚的寻路、建造、战斗拆成一套工具,并用它们串出一条从新世界开局到打死肉山的完整流程。
+DSTerraria:一个 tModLoader 模组,让 AI 接管泰拉瑞亚、自主游玩。
 
-寻路核心:走、跳、挖、放平台统一按帧数标价(帧数来自照着源码还原的物理引擎),
-每一步把所有动作模拟一遍,挑"落点离目标最近 + 这步最便宜"的那个。贪心跑主路,卡住时 A* 接管。
+把泰拉瑞亚的感知、寻路、建造、战斗拆成一套可调用的工具,交给大模型(DeepSeek)决策——
+从零开始探索、挖矿、合成、建房子、打 boss,全程不用人操作。
 
 聊天命令:
-  /start  跑完整流程
-  /halt   急停,停掉全流程和所有正在跑的动作
-  /vis    调试图层开关(录像前关掉)
+  /start        启动 AI 自主游玩
+  /start stop   停止
+  /halt         急停,停掉所有正在跑的动作
+  /vis          调试图层开关(录像前关掉)
+  /<自然语言>    直接下指令,如 /回家 /挖矿
 
-模组配置里可以开关辅助项(岩浆凝固、常驻 buff)和调试图层
+模组配置里填 Agent API Key / Base URL / 模型名(DeepSeek 三件套)。
 
-需要配合 DragonLens 使用(关刷怪/无敌/倍速)。
+(可选)DragonLens:关刷怪/无敌/倍速,方便调试。
 
-源码与说明:https://github.com/Reisenbug/TerraBlind
+源码与说明:https://github.com/WUDI-a/DSTerraria
 
 ---
 
-A toolbox of pathfinding, building and combat primitives for Terraria, wired by hand into one
-pipeline that runs from a fresh world all the way to killing the Wall of Flesh.
+DSTerraria: a tModLoader mod that lets an AI take over Terraria and play autonomously.
 
-Pathfinding: walking, jumping, mining and platform-placing are all priced in frames, taken from
-a physics engine reconstructed off the game's source. Every step simulates all of them and picks
-the one whose landing is closest to the goal for the least cost. Greedy drives the route; A*
-takes over the moment it gets stuck.
+Perception, pathfinding, building and combat are exposed as callable tools, and a large
+language model (DeepSeek) decides what to do — explore, mine, craft, build houses and fight
+bosses from scratch, fully hands-free.
 
 Chat commands:
-  /start  run the whole pipeline
-  /halt   emergency stop, kills the pipeline and every running action
-  /vis    toggle the debug overlay (turn it off before recording)
+  /start        start AI autonomous play
+  /start stop   stop
+  /halt         emergency stop
+  /vis          toggle the debug overlay
+  /<natural language>  issue an instruction directly, e.g. /home /mine
 
-Mod config toggles the assists (lava freezing, always-on buffs) and the debug overlay.
+Fill in Agent API Key / Base URL / model (DeepSeek) in the mod config.
 
-Requires DragonLens (disable spawns / godmode / fast-forward).
+(Optional) DragonLens: disable spawns / godmode / fast-forward.
 
-Source and details: https://github.com/Reisenbug/TerraBlind
+Source and details: https://github.com/WUDI-a/DSTerraria

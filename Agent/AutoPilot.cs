@@ -1,7 +1,7 @@
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 // 自主游玩:不等人开口,agent 空闲时自动把"下一步目标"递给 NativeAgent。
 // 只负责派活和接管战斗反射层开关,执行仍走原有工具循环。

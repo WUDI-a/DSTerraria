@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 给已存在的 NPC 指派住房。不是生成、也不是传送。原版玩家在住房界面点那一下走的就是
 	// WorldGen.moveRoom(x, y, n)(WorldGen.cs:1855):设 prioritizedTownNPCType、把它设成

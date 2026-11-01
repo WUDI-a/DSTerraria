@@ -1,4 +1,4 @@
-namespace TerraBlind
+namespace DSTerraria
 {
 	// Jev 版分诊。还没拿到 key,Pick 现在一律落到 baseline --
 	// 问题措辞和阈值先钉在这里,等 key 到了只要填 Ask()

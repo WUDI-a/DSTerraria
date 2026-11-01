@@ -5,7 +5,7 @@ using Terraria;
 using Terraria.ModLoader;
 using Terraria.UI.Chat;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     public class PathVisSystem : ModSystem
     {

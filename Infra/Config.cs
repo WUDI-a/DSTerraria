@@ -3,7 +3,7 @@ using System.ComponentModel;
 using Terraria.ModLoader;
 using Terraria.ModLoader.Config;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 一个 boss 一条,开局自动铺满,文本默认就是代码里那段
 	public class BossOverride
@@ -103,7 +103,7 @@ namespace TerraBlind
 		[SeparatePage]
 		public List<BossOverride> BossPlaybook = new();
 
-		// 留空就去环境变量和 ~/.typesafe_key 找。【填了就会存进 ModConfigs/TerraBlind.json】
+		// 留空就去环境变量和 ~/.typesafe_key 找。【填了就会存进 ModConfigs/DSTerraria.json】
 		[DefaultValue("")]
 		public string TypeSafeKey;
 

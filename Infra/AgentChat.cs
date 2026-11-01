@@ -3,13 +3,13 @@ using Terraria;
 using Terraria.ModLoader;
 using Terraria.GameContent;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	public class AgentChatCommand : ModCommand
 	{
 		public override CommandType Type => CommandType.Chat;
 		public override string Command => "tb";
-		public override string Description => "Give the TerraBlind agent an instruction";
+		public override string Description => "Give the DSTerraria agent an instruction";
 		public override string Usage => "/tb <instruction>";
 
 		public override void Action(CommandCaller caller, string input, string[] args)

@@ -6,7 +6,7 @@ using System.Numerics;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
-using TerraBlind;
+using DSTerraria;
 using Game = Terraria.Main;
 
 static class PvpTests
@@ -263,7 +263,7 @@ static class PvpTests
         Console.WriteLine("PASS: external action leases preserve tool input and activity budget, resume once and reject old-session cleanup");
     }
 
-    static bool JevariaCombatExtraJump() => TerraBlind.JevariaCombat.GameMovement.ExtraJumpObserved;
+    static bool JevariaCombatExtraJump() => DSTerraria.JevariaCombat.GameMovement.ExtraJumpObserved;
 
     sealed class DecisionHandler : HttpMessageHandler
     {
@@ -284,7 +284,7 @@ static class PvpTests
     public static async Task Smoke()
     {
         string configPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "Library/Application Support/Terraria/tModLoader/ModConfigs/TerraBlind_Config.json");
+            "Library/Application Support/Terraria/tModLoader/ModConfigs/DSTerraria_Config.json");
         var config = JsonNode.Parse(await System.IO.File.ReadAllTextAsync(configPath));
         string key = config["TypeSafeKey"]?.GetValue<string>();
         Check(!string.IsNullOrWhiteSpace(key), "No configured TypeSafe key for live smoke");

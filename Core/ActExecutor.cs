@@ -4,7 +4,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// /act, the COMPLETE action primitive. One call submits a list of steps: steps run SERIALLY, everything inside
 	// one step runs in PARALLEL (hold these keys + aim the cursor here + swing, all at once, until a condition).

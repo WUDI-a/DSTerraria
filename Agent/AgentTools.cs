@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 public static class AgentTools
 {
@@ -603,7 +603,7 @@ public static class AgentTools
             ? "action=query&list=search&srsearch=" + Uri.EscapeDataString(Text(args, "query")) + "&srlimit=5"
             : "action=parse&prop=text&disablelimitreport=1&redirects=1&page=" + Uri.EscapeDataString(Text(args, "title"));
         using var request = new HttpRequestMessage(HttpMethod.Get, site + "?format=json&" + query);
-        request.Headers.UserAgent.ParseAdd("TerraBlind/1.0");
+        request.Headers.UserAgent.ParseAdd("DSTerraria/1.0");
         using var response = await Wiki.SendAsync(request, token);
         response.EnsureSuccessStatusCode();
         string text = await response.Content.ReadAsStringAsync(token);

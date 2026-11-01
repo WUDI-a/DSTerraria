@@ -2,7 +2,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// ROPE LADDER, build a rope column upward, N ropes tall, from wherever the player stands.
 	//

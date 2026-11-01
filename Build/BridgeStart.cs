@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 站上桥起点。这一段【整个重写过】--- 老的 ReachCell 用"先降到目标行再横过去"
 	// (platdown 降 / pillar 升 / bridge 横,一次消一个方向),实测一路铺平台梯、

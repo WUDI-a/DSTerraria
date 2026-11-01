@@ -1,7 +1,7 @@
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// Open-ended direction explore: walk toward a sign forever. No endpoint, no biome stop, Python flips it on
 	// (/nav_start{sign}) and Ctrl-C's it off (/nav_stop). Each leg picks the furthest reachable standable cell

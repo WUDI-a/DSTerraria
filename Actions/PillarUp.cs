@@ -2,7 +2,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// PILLAR, build a PLATFORM column upward, N tall, in the column one cell to the player's RIGHT.
 	//

@@ -2,7 +2,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ObjectData;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 一个东西放不下去,到底卡在哪一格。
 	//

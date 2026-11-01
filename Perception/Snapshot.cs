@@ -1,4 +1,4 @@
-namespace TerraBlind
+namespace DSTerraria
 {
 	public sealed class HotbarSlot
 	{

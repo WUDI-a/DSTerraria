@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 控制权的锁,按【方面】分,不是按整个玩家分。
 	//

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 背包满了就合不出东西。游戏连配方都不算 available。腾位置的办法是把东西【暂时】
 	// 扔到地上,合成/放置完再捡回来。不是 trash,扔出去的还要。

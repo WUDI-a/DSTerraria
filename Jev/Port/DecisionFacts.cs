@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.Xna.Framework;
 using Terraria.ID;
 
-namespace TerraBlind.JevariaCombat;
+namespace DSTerraria.JevariaCombat;
 
 public static class DecisionFacts
 {

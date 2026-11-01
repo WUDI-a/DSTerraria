@@ -4,7 +4,7 @@ using Terraria;
 using Terraria.ModLoader;
 using Terraria.UI.Chat;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 屏幕左上角一小块,每帧覆盖刷新。【不往聊天里打】:聊天会堆积,那才是杂乱的来源
 	public class JevHud : ModSystem

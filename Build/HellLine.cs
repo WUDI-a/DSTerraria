@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// HELL LINE。地狱那条 170 格的桥铺在哪一行。
 	//

@@ -1,7 +1,7 @@
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind;
+namespace DSTerraria;
 
 // 聊天栏输入 "/" + 自然语言(如 /挖矿、/回家、/打肉山)时,把整句交给 DeepSeek 决策。
 // 游戏自己的命令(/start /tb /vis /halt /speedrun /bossbook /ai /help 等)不受影响:

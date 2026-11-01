@@ -1,7 +1,7 @@
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 摔伤:10×(格数-25),25 格以内白摔。落地前往脚下放蜘蛛网能免掉
 	public static class FallCost

@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 分诊的唯一入口。现在只观测:把现场和 baseline 的选择记下来,不改任何行为。
 	// 等 Jev 接上,这里再比对两边选得一样不一样

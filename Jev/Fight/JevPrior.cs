@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// Jev 每道题每个选项选了几次,按 boss 分开记。对照组按这张表抽
 	public static class JevPrior

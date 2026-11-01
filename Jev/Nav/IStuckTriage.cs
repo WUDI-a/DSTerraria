@@ -1,4 +1,4 @@
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 贪心走不动时,下一步交给谁。顺序现在钉死在 RecedingNav 里,这个接口把"选哪个"抽出来
 	public enum Rung

@@ -1,7 +1,7 @@
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 游戏内聊天框只留【给人看的】那一路:AgentChat 的 <you → TB> / <TB> 对话。
 	// 其余全是诊断(卡点、脱困、超时、相位播报…),录视频时刷屏,而日志里本来就有一份。
@@ -27,7 +27,7 @@ namespace TerraBlind
 		public override void Action(CommandCaller caller, string input, string[] args)
 		{
 			Chatter.Diag = !Chatter.Diag;
-			Main.NewText($"[TerraBlind] 诊断刷屏 {(Chatter.Diag ? "开" : "关")}", 200, 200, 120);
+			Main.NewText($"[DSTerraria] 诊断刷屏 {(Chatter.Diag ? "开" : "关")}", 200, 200, 120);
 		}
 	}
 }

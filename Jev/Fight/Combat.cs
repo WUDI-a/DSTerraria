@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	public enum CombatAct { Ignore, Fight, Flee, WallOff, Heal }
 

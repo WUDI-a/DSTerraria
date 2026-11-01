@@ -9,7 +9,7 @@ using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	public class ControlInput
 	{
@@ -90,7 +90,7 @@ namespace TerraBlind
 			{
 				if (Main.netMode == 2) { _announced = true; return; }
 				if (Main.LocalPlayer == null || !Main.LocalPlayer.active) return;
-				Chatter.Say("[TerraBlind] HTTP server listening on " + Prefix, Color.LightGreen);
+				Chatter.Say("[DSTerraria] HTTP server listening on " + Prefix, Color.LightGreen);
 				_announced = true;
 			}
 
@@ -185,13 +185,13 @@ namespace TerraBlind
 				_listener.Prefixes.Add(Prefix);
 				_listener.Start();
 				_running = true;
-				_thread = new Thread(Loop) { IsBackground = true, Name = "TerraBlindHttp" };
+				_thread = new Thread(Loop) { IsBackground = true, Name = "DSTerrariaHttp" };
 				_thread.Start();
-				Mod.Logger.Info("TerraBlind HTTP server listening on " + Prefix);
+				Mod.Logger.Info("DSTerraria HTTP server listening on " + Prefix);
 			}
 			catch (Exception e)
 			{
-				Mod.Logger.Error("TerraBlind failed to start HTTP server: " + e);
+				Mod.Logger.Error("DSTerraria failed to start HTTP server: " + e);
 			}
 		}
 
@@ -240,7 +240,7 @@ namespace TerraBlind
 				if (ctx.Request.IsWebSocketRequest && ctx.Request.Url.AbsolutePath == "/ws")
 				{
 					var c = ctx;
-					new Thread(() => ServeWebSocket(c)) { IsBackground = true, Name = "TerraBlindWs" }.Start();
+					new Thread(() => ServeWebSocket(c)) { IsBackground = true, Name = "DSTerrariaWs" }.Start();
 					continue;
 				}
 				try
@@ -255,7 +255,7 @@ namespace TerraBlind
 						ctx.Response.Close();
 					}
 					catch { }
-					Mod.Logger.Warn("TerraBlind request error: " + e.Message);
+					Mod.Logger.Warn("DSTerraria request error: " + e.Message);
 				}
 			}
 		}

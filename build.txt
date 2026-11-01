@@ -1,6 +1,6 @@
-displayName = TerraBlind
+displayName = DSTerraria
 author = Stardust
 version = 1.0
-homepage = https://github.com/Reisenbug/TerraBlind
+homepage = https://github.com/WUDI-a/DSTerraria
 includeSource = true
 buildIgnore = *.csproj, *.user, *.sh, *.md, .git*, .vs*, .claude*, .DS_Store, .env, obj\*, bin\*, docs\*, tests\*

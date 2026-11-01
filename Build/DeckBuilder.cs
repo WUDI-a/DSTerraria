@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 沿着 HellLine 一格一格铺桥面。和 BridgeBuilder 的区别只有一个:那个锁死一行,
 	// 这个跟着 Line 的起伏走。地狱的线本来就不是平的。

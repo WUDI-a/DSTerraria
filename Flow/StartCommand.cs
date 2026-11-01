@@ -1,6 +1,6 @@
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// /speedrun,原 /start 的全流程(纯代码速通,不经过 AI)。名字让给 AI 自主模式了
 	public class StartCommand : ModCommand

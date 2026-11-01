@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 每个 boss 一条,打法只是一段话
 	public class BossInfo
@@ -293,7 +293,7 @@ namespace TerraBlind
 		public override void Action(Terraria.ModLoader.CommandCaller caller, string input, string[] args)
 		{
 			BossBook.UseKnowledge = !BossBook.UseKnowledge;
-			Terraria.Main.NewText($"[TerraBlind] boss playbook {(BossBook.UseKnowledge ? "ON" : "OFF")}", 200, 200, 120);
+			Terraria.Main.NewText($"[DSTerraria] boss playbook {(BossBook.UseKnowledge ? "ON" : "OFF")}", 200, 200, 120);
 			DiagLog.Write($"[bossbook] UseKnowledge={BossBook.UseKnowledge}");
 		}
 	}

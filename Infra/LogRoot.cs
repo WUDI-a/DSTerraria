@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 【一次会话一个目录】。所有日志本来都写死在 TerraBlindLogs/ 下的同名文件里,永远追加:
 	// 上一局的 plan.log 和这一局混在一行行之间,而帧号(GameUpdateCount)每次进世界从头数,

@@ -1,7 +1,7 @@
 using System.Text;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 附近敌人的事实。只测,不判威胁 -- 哪只危险交给 Jev,它认识怪的名字
 	public static class ThreatScan

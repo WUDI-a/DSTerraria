@@ -1,7 +1,7 @@
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     public enum SkillState { Idle, PillarBuild, PillarWait, PillarLaunch, DigDown, DigLeft, DigRight, DigUp }
 

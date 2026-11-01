@@ -1,4 +1,4 @@
-# TerraBlind 决策记录
+# DSTerraria 决策记录
 
 ---
 

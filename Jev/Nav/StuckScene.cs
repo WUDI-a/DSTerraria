@@ -1,7 +1,7 @@
 using System.Text;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 卡住那一刻的现场,序列化成 Jev 的 state。
 	// Jev 只吃【一个文本字段】,所以所有上下文都得编进这一份 JSON(文档建议 named JSON fields)

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     public struct Breakpoint
     {

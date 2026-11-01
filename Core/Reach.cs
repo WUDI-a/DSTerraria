@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 【够不够得着,只有这一份】。原来全用 IsInTileInteractionRange(Simple),而 vanilla 的挖和放
 	// 各有各的公式,三把尺子互不相同

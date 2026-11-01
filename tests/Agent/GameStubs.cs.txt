@@ -144,9 +144,9 @@ namespace Terraria.ModLoader
         public abstract void Action(CommandCaller caller, string input, string[] args);
     }
 }
-namespace TerraBlind
+namespace DSTerraria
 {
-    public class TerraBlind : Terraria.ModLoader.Mod { }
+    public class DSTerraria : Terraria.ModLoader.Mod { }
     public class Config
     {
         public static readonly Config I = new();

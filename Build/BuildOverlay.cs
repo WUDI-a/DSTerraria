@@ -5,7 +5,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     // REPLAY-SIDE preview + conflict check for a build_rec.json. Two jobs, both read-only (no world edits):
     //   OVERLAY, draw the recorded structure FAINT at the target location (anchor = the player's feet now, or a

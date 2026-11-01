@@ -1,7 +1,7 @@
 using Terraria;
 using Terraria.ObjectData;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 拿一个宝:走过去 → 开箱 → 掏空 → 验收。整条链在 mod 里跑完,python 只发一次再轮询。
 	//

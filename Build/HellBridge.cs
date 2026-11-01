@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// HELL BRIDGE。从人现在站的地方,把 170 格桥建出来。
 	//

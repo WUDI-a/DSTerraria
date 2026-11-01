@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 【/tb 1 的全流程,搬进 mod】。原来这一整套编排在 python 的 _run_from_zero 里,
 	// 而它每一步都要 HTTP 往返 --- 发布时想把 python 切掉就得连流程一起丢。
@@ -42,7 +42,7 @@ namespace TerraBlind
 			GreedPickup.Reset();
 			Outcome = "running"; Reason = "";
 			DiagLog.Write($"[start] 开工 人({ActExecutor.OriginCx(p)},{ActExecutor.OriginCy(p)}) 木材{Have(ItemID.Wood)} 火把{Have(ItemID.Torch)}");
-			Chatter.Say("[TerraBlind] 开工:收火把 → 盖房子 → 下地狱", 120, 255, 120);
+			Chatter.Say("[DSTerraria] 开工:收火把 → 盖房子 → 下地狱", 120, 255, 120);
 			Go(Ph.Torch);
 			return true;
 		}
@@ -59,7 +59,7 @@ namespace TerraBlind
 		{
 			Outcome = "stuck"; Reason = r; Phase = Ph.Idle;
 			DiagLog.Write($"[start] STUCK {r}");
-			Chatter.Say($"[TerraBlind] {r}", 255, 120, 120);
+			Chatter.Say($"[DSTerraria] {r}", 255, 120, 120);
 		}
 
 		static void Go(Ph next)
@@ -137,7 +137,7 @@ namespace TerraBlind
 							HouseW, HouseH, 200, out _siteX, out _siteY, out int scanned))
 					{ Fail($"附近没地方盖(要{HouseW}x{HouseH}的净空;扫了{scanned}格)"); return; }
 					DiagLog.Write($"[start] 房址左下角({_siteX},{_siteY})");
-					Chatter.Say($"[TerraBlind] 房址({_siteX},{_siteY}),走过去", 120, 255, 120);
+					Chatter.Say($"[DSTerraria] 房址({_siteX},{_siteY}),走过去", 120, 255, 120);
 					Go(Ph.GotoSite);
 					return;
 				}
@@ -170,7 +170,7 @@ namespace TerraBlind
 					HttpServerSystem.WarmDescentAsync("jungle");
 					if (!HouseBuilder.Start(4, 1, _siteX, _siteY, out string hw))
 					{ Fail($"开不了工:{hw}"); return; }
-					Chatter.Say("[TerraBlind] 开始盖房子", 120, 255, 120);
+					Chatter.Say("[DSTerraria] 开始盖房子", 120, 255, 120);
 					Go(Ph.House);
 					return;
 				}
@@ -188,7 +188,7 @@ namespace TerraBlind
 						return;
 					}
 					DiagLog.Write("[start] 房子盖好了");
-					Chatter.Say("[TerraBlind] 房子好了,下地狱", 120, 255, 120);
+					Chatter.Say("[DSTerraria] 房子好了,下地狱", 120, 255, 120);
 					Go(Ph.Descend);
 					return;
 				}
@@ -290,7 +290,7 @@ namespace TerraBlind
 						}
 						Fail($"地狱流程起不来:{hrw}"); return;
 					}
-					Chatter.Say("[TerraBlind] 到地狱了", 120, 255, 120);
+					Chatter.Say("[DSTerraria] 到地狱了", 120, 255, 120);
 					Go(Ph.Hell);
 					return;
 				}
@@ -301,7 +301,7 @@ namespace TerraBlind
 					if (StateSnapshotPlayer.HellRunPhase() != "idle") return;
 					Outcome = "done"; Phase = Ph.Done;
 					DiagLog.Write("[start] 全流程跑完");
-					Chatter.Say("[TerraBlind] 全流程跑完", 120, 255, 120);
+					Chatter.Say("[DSTerraria] 全流程跑完", 120, 255, 120);
 					return;
 				}
 			}

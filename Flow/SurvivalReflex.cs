@@ -1,6 +1,6 @@
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// Hand, survival reflex: a horizontal, always-on frame-level loop that keeps the bot ALIVE while any main action
 	// (mine/chop/etc.) is running, the brain (LLM) is seconds too slow to react to lava or a sudden hit. It does

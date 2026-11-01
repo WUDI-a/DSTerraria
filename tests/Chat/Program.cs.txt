@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Xna.Framework;
 using ReLogic.Graphics;
-using TerraBlind;
+using DSTerraria;
 
 class Program
 {
@@ -65,7 +65,7 @@ namespace Terraria.ModLoader
         public abstract void Action(CommandCaller caller, string input, string[] args);
     }
 }
-namespace TerraBlind
+namespace DSTerraria
 {
     public class Config { public static Config I = new(); public bool AgentEnabled; }
     public static class NativeAgent { public static void Submit(string text) { } }

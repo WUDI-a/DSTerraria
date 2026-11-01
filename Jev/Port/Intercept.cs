@@ -1,7 +1,7 @@
 using System;
 using Microsoft.Xna.Framework;
 
-namespace TerraBlind.JevariaCombat;
+namespace DSTerraria.JevariaCombat;
 
 public static class Intercept
 {

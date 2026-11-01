@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using Terraria;
 
-namespace TerraBlind
+namespace DSTerraria
 {
     // Receding-horizon nav (MVP, branch experiment). Instead of planning the whole route open-loop, each cycle plans
     // only a SHORT window from the player's REAL position toward the final goal (big field as h, tiny exp budget →
@@ -45,7 +45,7 @@ namespace TerraBlind
 
         public static void Toggle()
         {
-            if (Active) { Stop(); Chatter.Say("[TerraBlind] receding nav OFF"); return; }
+            if (Active) { Stop(); Chatter.Say("[DSTerraria] receding nav OFF"); return; }
             int mx = (int)((Main.mouseX + Main.screenPosition.X) / 16f);
             int my = (int)((Main.mouseY + Main.screenPosition.Y) / 16f);
             Start(mx, my);
@@ -181,7 +181,7 @@ namespace TerraBlind
                 catch (System.Exception e) { DiagLog.Write($"[recede] field build EXC {e.Message}"); _fieldReady = true; }
             });
             EventLog.W(Ev.Goal, $"new goal ({goalWx},{goalWy}) — building field");
-            Chatter.Say($"[TerraBlind] receding nav → ({goalWx},{goalWy}) (building field…)");
+            Chatter.Say($"[DSTerraria] receding nav → ({goalWx},{goalWy}) (building field…)");
         }
 
         public static void Stop()
@@ -243,7 +243,7 @@ namespace TerraBlind
             if (_mode == Mode.Mine)
             {
                 if (!Predicates.IsSolid(_goalWx, _goalWy))
-                { DiagLog.Write("[recede] exact goal mined out"); LastStop = "done"; Stop(); Chatter.Say("[TerraBlind] receding nav done (mined)"); return; }
+                { DiagLog.Write("[recede] exact goal mined out"); LastStop = "done"; Stop(); Chatter.Say("[DSTerraria] receding nav done (mined)"); return; }
             }
             else if (_mode == Mode.Reach)
             {
@@ -280,7 +280,7 @@ namespace TerraBlind
                     && (_mode != Mode.Stand || p.velocity.Y == 0f))
                 {
                     DiagLog.Write($"[recede] reached goal mode={_mode} goal=({_goalWx},{_goalWy}) dx={cx - gx:0.#} dy={fy - gy:0.#} body=({ActExecutor.OriginCx(p)},{ActExecutor.OriginCy(p)})");
-                    LastStop = "done"; Stop(); Chatter.Say("[TerraBlind] receding nav done"); return;
+                    LastStop = "done"; Stop(); Chatter.Say("[DSTerraria] receding nav done"); return;
                 }
             }
 
@@ -308,7 +308,7 @@ namespace TerraBlind
                 if (TrapEscape.Busy) { StuckSentinel.Reset(); return; }
                 EventLog.W(Ev.Sentinel, $"GIVE-UP H平线 放弃这一段 goal=({_goalWx},{_goalWy})");
                 LastStop = "stuck"; Stop();
-                Chatter.Say("[TerraBlind] receding: stuck (sentinel) — abandoning leg");
+                Chatter.Say("[DSTerraria] receding: stuck (sentinel) — abandoning leg");
                 return;
             }
             if (StuckSentinel.Nudging) return;
@@ -405,7 +405,7 @@ namespace TerraBlind
                 if (++_standTries >= StandMaxTries)
                 {
                     LastStop = "unreachable"; Stop();
-                    Chatter.Say("[TerraBlind] receding: can't stand on goal");
+                    Chatter.Say("[DSTerraria] receding: can't stand on goal");
                     return;
                 }
                 return;
@@ -464,7 +464,7 @@ namespace TerraBlind
                 if (TrapEscape.Busy) StuckSentinel.Reset();
             }
             if (res == null || res.Steps.Count == 0)
-            { DiagLog.Write($"[recede] STOP at {cell}: no physics edge at all (unbreakable seal — a human couldn't pass either)"); LastStop = "walled_in"; Stop(); Chatter.Say("[TerraBlind] receding: walled in"); return; }
+            { DiagLog.Write($"[recede] STOP at {cell}: no physics edge at all (unbreakable seal — a human couldn't pass either)"); LastStop = "walled_in"; Stop(); Chatter.Say("[DSTerraria] receding: walled in"); return; }
 
             // bestH 只在当前盆地内衡量进度:摔一次能让 H 跳 +500~1300(循环环内才 ≤50),那是换盆地不是打转
             if (res.CurH < _bestH) _bestH = res.CurH;

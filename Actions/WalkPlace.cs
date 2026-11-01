@@ -3,7 +3,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// WALK-PLACE, walk in one direction to a target column, and along the way, whenever a placement target comes
 	// within reach, place its item there. Does not stop at each target, reaches, places, keeps walking. Used to

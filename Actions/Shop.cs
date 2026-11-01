@@ -1,7 +1,7 @@
 using Terraria;
 using Terraria.ID;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// 商店里的钱怎么算、东西怎么卖。判据全问原版要,不自己写死价格表。
 	public static class Shop

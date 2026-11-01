@@ -3,7 +3,7 @@ using System.Text;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace TerraBlind
+namespace DSTerraria
 {
 	// SEMANTIC PLACE, "put this thing in that cell", the way a person would say it. A human placing a block decides
 	// two things: WHAT and WHERE. Everything else (which hotbar slot it lives in, when to press, how long to hold,

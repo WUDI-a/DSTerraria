@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Terraria;
 
-namespace TerraBlind.JevariaCombat;
+namespace DSTerraria.JevariaCombat;
 
 public enum DodgeDirection { Up, UpRight, Right, DownRight, Down, DownLeft, Left, UpLeft, Stay }
 public enum Magnitude { None, Small, Medium, Large }

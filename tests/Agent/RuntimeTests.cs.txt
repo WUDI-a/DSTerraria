@@ -1,0 +1,338 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Reflection;
+using System.Text;
+using System.Text.Json.Nodes;
+using System.Threading;
+using System.Threading.Tasks;
+using TerraBlind;
+using Terraria.ID;
+using Terraria.ModLoader;
+using Game = Terraria.Main;
+
+static class RuntimeTests
+{
+    static readonly NativeAgent Agent = new();
+    static void Check(bool condition, string message)
+    { if (!condition) throw new Exception(message); }
+
+    static async Task PumpUntil(Func<bool> done)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!done())
+        {
+            Check(DateTime.UtcNow < deadline, "main-thread test timed out");
+            Agent.PostUpdateEverything();
+            for (int frame = 0; frame < 10; frame++) PlayerCombat.Tick(Game.LocalPlayer);
+            await Task.Delay(5);
+        }
+    }
+
+    static async Task<T> Execute<T>(Task<T> task)
+    {
+        await PumpUntil(() => task.IsCompleted);
+        return await task;
+    }
+
+    public static async Task Run()
+    {
+        Agent.Load();
+        try
+        {
+            using var cancel = new CancellationTokenSource();
+            bool executed = false;
+            var queued = NativeAgent.OnMain(() => executed = true, cancel.Token);
+            cancel.Cancel();
+            Agent.PostUpdateEverything();
+            Check(queued.IsCanceled && !executed, "cancelled main-thread callback executed");
+            Console.WriteLine("PASS: cancelled queued game operation never executes");
+
+            int combatStops = Combat.Stops, fightStops = FightCoordinator.Stops;
+            await Execute(AgentTools.Execute("set_combat", new JsonObject { ["auto_dodge"] = false, ["auto_attack"] = false }, default));
+            Check(!AgentPermissions.Dodge && !AgentPermissions.Attack, "combat permission was not applied");
+            Check(Combat.Stops == combatStops + 1 && FightCoordinator.Stops == fightStops + 1, "active attack was not stopped");
+            int calls = HttpServerSystem.Calls.Count;
+            string denied = await Execute(AgentTools.Execute("fight", new JsonObject(), default));
+            Check(denied.Contains("error") && HttpServerSystem.Calls.Count == calls, "forbidden fight reached game dispatcher");
+            await Execute(AgentTools.Execute("set_combat", new JsonObject { ["auto_dodge"] = true }, default));
+            Check(AgentPermissions.Dodge && !AgentPermissions.Attack, "partial permission update changed unrelated permission");
+            Console.WriteLine("PASS: combat denial stops attack, rejects fight and preserves partial updates");
+
+            Game.LocalPlayer.inventory[0].Name = "木材";
+            Game.LocalPlayer.inventory[0].stack = 20;
+            HttpServerSystem.Handler = (path, payload) =>
+            {
+                Check(path == "/craft", "unexpected craft endpoint");
+                var args = JsonNode.Parse(payload);
+                Check(args["item_name"].ToString() == "工作台" && args["amount"].GetValue<int>() == 1, "craft arguments changed");
+                Game.LocalPlayer.inventory[0].stack = 10;
+                Game.LocalPlayer.inventory[1].Name = "工作台";
+                Game.LocalPlayer.inventory[1].stack = 1;
+                return (200, "{\"ok\":true}");
+            };
+            var crafted = JsonNode.Parse(await Execute(AgentTools.Execute("craft", new JsonObject { ["name"] = "工作台" }, default)));
+            Check(crafted["got"]["工作台"].GetValue<int>() == 1 && crafted["lost"]["木材"].GetValue<int>() == 10, "tool result did not measure inventory delta");
+            Check(crafted["state"]["pos"]["x"].GetValue<int>() == 12 && crafted["state"]["pos"]["y"].GetValue<int>() == 34, "tool position is not taken from player origin");
+            Console.WriteLine("PASS: craft adapter reports measured inventory delta and player origin");
+
+            using var http = new HttpClient(new NavHandler());
+            ((HttpClient)typeof(NativeAgent).GetField("_http", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Agent)).Dispose();
+            typeof(NativeAgent).GetField("_http", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(Agent, http);
+            typeof(NativeAgent).GetField("_conversation", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(Agent, new AgentConversation(http));
+            HttpServerSystem.Handler = (path, payload) =>
+            {
+                if (path == "/nav_recede") RecedingNav.Active = true;
+                return (200, path == "/nav_recede_done" ? "{\"done\":false}" : "{\"accepted\":true}");
+            };
+            NativeAgent.Submit("移动");
+            await PumpUntil(() => RecedingNav.Active);
+            int stops = Halt.Stops;
+            NativeAgent.Submit("换个任务");
+            Check(!RecedingNav.Active && Halt.Stops == stops + 1, "replacement task did not stop old navigation");
+            await PumpUntil(() => AgentChat.Messages.Contains("新任务完成"));
+            Check(HttpServerSystem.Calls.Count(p => p == "/nav_recede") == 1, "old navigation restarted after cancellation");
+            Console.WriteLine("PASS: replacement instruction cancels active navigation and completes next task");
+
+            await TestNetwork();
+            TestRoleSwitch();
+            TestDefaultOwner();
+            AgentPermissions.Dodge = AgentPermissions.Attack = false;
+            Agent.OnWorldUnload();
+            Check(AgentPermissions.Dodge && AgentPermissions.Attack, "world unload did not reset permissions");
+            Console.WriteLine("PASS: world unload resets combat permissions");
+            await TestPvp();
+        }
+        finally { Agent.Unload(); }
+    }
+
+    static void Receive(int type, int sender, Action<BinaryWriter> payload)
+    {
+        using var data = new MemoryStream();
+        using var writer = new BinaryWriter(data, Encoding.UTF8, true);
+        writer.Write((byte)type); payload(writer); writer.Flush(); data.Position = 0;
+        using var reader = new BinaryReader(data);
+        AgentNetwork.Receive(reader, sender);
+    }
+
+    static void Request(int sender, string command) => Receive(1, sender, writer => { writer.Write(1); writer.Write(command); });
+
+    static void DeliverToAi(byte[] packet)
+    {
+        Game.netMode = NetmodeID.MultiplayerClient; Game.dedServ = false; Config.I.AiClient = true;
+        using var reader = new BinaryReader(new MemoryStream(packet));
+        AgentNetwork.Receive(reader, 256);
+    }
+
+    static async Task TestNetwork()
+    {
+        var network = new AgentNetwork();
+        network.OnWorldLoad();
+        Game.netMode = NetmodeID.Server; Game.dedServ = true;
+        ModPacket.Sent.Clear();
+        Receive(0, 1, _ => { });
+        Request(0, "bind");
+        var bound = ModPacket.Sent.Last();
+        using (var reader = new BinaryReader(new MemoryStream(bound.Data)))
+            Check(bound.Recipient == 1 && reader.ReadByte() == 2 && reader.ReadInt32() == 0 && reader.ReadString() == "status", "binding was not sent to AI client with real owner");
+        DeliverToAi(bound.Data);
+        Game.netMode = NetmodeID.Server; Game.dedServ = true;
+        Request(2, "task 捣乱");
+        Check(ModPacket.Sent.Last().Recipient == 2 && ModPacket.Sent.Last().Data[0] == 4, "unbound sender was not rejected");
+        string goal = "task 先别合成，检查一下背包";
+        Request(0, goal);
+        var forwarded = ModPacket.Sent.Last();
+        using (var reader = new BinaryReader(new MemoryStream(forwarded.Data)))
+            Check(forwarded.Recipient == 1 && reader.ReadByte() == 2 && reader.ReadInt32() == 0 && reader.ReadString() == goal, "owner task text was changed or misrouted");
+        int messages = AgentChat.Messages.Count;
+        DeliverToAi(forwarded.Data);
+        await PumpUntil(() => AgentChat.Messages.Count > messages && AgentChat.Messages.Last() == "新任务完成");
+        ModPacket.Sent.Clear();
+        Check(AgentNetwork.RelayAgentReply(new string('测', 2000)), "AI reply was not relayed");
+        Check(ModPacket.Sent.Count == 3, "long reply was not split within packet limit");
+        string joined = "";
+        foreach (var packet in ModPacket.Sent)
+        {
+            using var reader = new BinaryReader(new MemoryStream(packet.Data));
+            Check(reader.ReadByte() == 3, "AI reply used wrong packet type");
+            string chunk = reader.ReadString();
+            Check(chunk.Length <= 900, "reply chunk exceeds server limit");
+            joined += chunk;
+        }
+        Check(joined == new string('测', 2000), "reply splitting lost text");
+        Game.netMode = NetmodeID.Server; Game.dedServ = true;
+        Receive(3, 1, writer => writer.Write("任务完成"));
+        var reply = ModPacket.Sent.Last();
+        using (var reader = new BinaryReader(new MemoryStream(reply.Data)))
+            Check(reply.Recipient == 0 && reader.ReadByte() == 4 && reader.ReadString() == "AI[1] 任务完成", "AI reply did not return to owner");
+        AgentNetwork.Disconnect(0);
+        var stopped = ModPacket.Sent.Last();
+        using (var reader = new BinaryReader(new MemoryStream(stopped.Data)))
+            Check(stopped.Recipient == 1 && reader.ReadByte() == 2 && reader.ReadInt32() == -1 && reader.ReadString() == "stop", "owner disconnect did not stop AI");
+        DeliverToAi(stopped.Data);
+        Check(Manual.On && !Combat.Enabled && !Dodge.Enabled, "AI client did not apply disconnect stop");
+        Check(!AgentNetwork.RelayAgentReply("不应转发"), "unbound AI client continued relaying");
+        Game.netMode = NetmodeID.Server; Game.dedServ = true;
+        int packets = ModPacket.Sent.Count;
+        Receive(3, 1, writer => writer.Write("不应转发"));
+        Check(ModPacket.Sent.Count == packets, "reply was relayed after owner disconnected");
+        Game.netMode = NetmodeID.MultiplayerClient; Game.dedServ = false; Config.I.AiClient = false;
+        Game.LocalPlayer.active = true;
+        new AiCommand().Action(new CommandCaller(), "/ai list", new[] { "list" });
+        Check(Game.Chat.Last().Contains("查询"), "list command had no immediate acknowledgement");
+        var listPacket = ModPacket.Sent.Last();
+        Game.netMode = NetmodeID.Server; Game.dedServ = true;
+        using (var reader = new BinaryReader(new MemoryStream(listPacket.Data))) AgentNetwork.Receive(reader, 0);
+        var listReply = ModPacket.Sent.Last();
+        Check(listReply.Recipient == 0 && listReply.Data[0] == 4, "server did not reply to list request");
+        Game.netMode = NetmodeID.MultiplayerClient; Game.dedServ = false;
+        using (var reader = new BinaryReader(new MemoryStream(listReply.Data))) AgentNetwork.Receive(reader, 256);
+        int chatCount = Game.Chat.Count;
+        Game.GameUpdateCount += 600; network.PostUpdateEverything();
+        Check(Game.Chat.Count == chatCount, "completed list request reported timeout");
+        AgentNetwork.Request(-1, "list"); Game.GameUpdateCount += 600; network.PostUpdateEverything();
+        Check(Game.Chat.Last().Contains("10秒"), "missing server reply stayed silent");
+        Game.netMode = NetmodeID.SinglePlayer; Game.dedServ = false; Config.I.AiClient = false;
+        Console.WriteLine("PASS: production packet handlers enforce binding, AI execution, reply splitting/routing and disconnect stop");
+    }
+
+    static void TestRoleSwitch()
+    {
+        var network = new AgentNetwork();
+        network.OnWorldLoad();
+        Game.netMode = NetmodeID.MultiplayerClient; Config.I.AiClient = true;
+        ModPacket.Sent.Clear();
+        network.PostUpdateEverything();
+        Check(ModPacket.Sent.Count == 1 && ModPacket.Sent[0].Data[0] == 0, "enabling AI did not register immediately");
+        Game.netMode = NetmodeID.Server; Game.dedServ = true;
+        Receive(0, 1, _ => { });
+        Request(0, "bind");
+        DeliverToAi(ModPacket.Sent.Last().Data);
+        Combat.Enabled = Dodge.Enabled = RecedingNav.Active = true;
+        Config.I.AiClient = false;
+        network.PostUpdateEverything();
+        Check(!Combat.Enabled && !Dodge.Enabled && !RecedingNav.Active, "disabling AI left active operations");
+        var unregister = ModPacket.Sent.Last();
+        Check(unregister.Data[0] == 5, "disabling AI did not unregister");
+        Game.netMode = NetmodeID.Server; Game.dedServ = true;
+        using (var reader = new BinaryReader(new MemoryStream(unregister.Data))) AgentNetwork.Receive(reader, 1);
+        Request(0, "status");
+        using (var reader = new BinaryReader(new MemoryStream(ModPacket.Sent.Last().Data)))
+            Check(reader.ReadByte() == 4 && reader.ReadString().Contains("不在线"), "disabled AI still registered on server");
+        Game.netMode = NetmodeID.MultiplayerClient; Game.dedServ = false; Config.I.AiClient = true;
+        network.PostUpdateEverything();
+        Check(ModPacket.Sent.Last().Data[0] == 0 && !AgentNetwork.RelayAgentReply("旧主人"), "reenabling retained old binding or failed to register");
+        Game.netMode = NetmodeID.Server; Game.dedServ = true;
+        Receive(0, 1, _ => { });
+        Request(0, "task 不该执行");
+        using (var reader = new BinaryReader(new MemoryStream(ModPacket.Sent.Last().Data)))
+            Check(reader.ReadByte() == 4 && reader.ReadString().Contains("没有绑定"), "reenabled AI retained server owner");
+        Game.netMode = NetmodeID.SinglePlayer; Game.dedServ = false; Config.I.AiClient = false;
+        Console.WriteLine("PASS: live AI toggle registers, stops, unregisters and requires fresh binding");
+    }
+
+    static void TestDefaultOwner()
+    {
+        var network = new AgentNetwork();
+        string previousName = Game.player[0].name;
+        Game.netMode = NetmodeID.Server; Game.dedServ = true;
+        network.OnWorldLoad();
+        try
+        {
+            Game.player[0].name = "not_the_owner";
+            Game.player[0].active = Game.player[1].active = true;
+            ModPacket.Sent.Clear();
+            Receive(0, 1, _ => { });
+            Check(ModPacket.Sent.Count == 0, "bound to an arbitrary player before Reisenberg joined");
+            Game.player[0].name = "Reisenberg";
+            network.PostUpdateEverything();
+            using (var reader = new BinaryReader(new MemoryStream(ModPacket.Sent.Last().Data)))
+                Check(reader.ReadByte() == 2 && reader.ReadInt32() == 0 && reader.ReadString() == "status", "late default owner did not auto-bind");
+            Request(0, "unbind");
+            int sent = ModPacket.Sent.Count;
+            network.PostUpdateEverything();
+            Check(ModPacket.Sent.Count == sent, "manual unbind was immediately overridden");
+            Receive(5, 1, _ => { }); Receive(0, 1, _ => { });
+            using (var reader = new BinaryReader(new MemoryStream(ModPacket.Sent.Last().Data)))
+                Check(reader.ReadByte() == 2 && reader.ReadInt32() == 0, "new AI registration did not default to Reisenberg");
+            Game.player[0].active = false;
+            AgentNetwork.Disconnect(0);
+            using (var reader = new BinaryReader(new MemoryStream(ModPacket.Sent.Last().Data)))
+                Check(reader.ReadByte() == 2 && reader.ReadInt32() == -1 && reader.ReadString() == "stop", "owner disconnect did not stop AI");
+            Game.player[0].active = true; network.PostUpdateEverything();
+            using (var reader = new BinaryReader(new MemoryStream(ModPacket.Sent.Last().Data)))
+                Check(reader.ReadByte() == 2 && reader.ReadInt32() == 0 && reader.ReadString() == "status", "owner rejoin did not restore binding");
+        }
+        finally
+        {
+            network.OnWorldLoad(); Game.player[0].name = previousName;
+            Game.netMode = NetmodeID.SinglePlayer; Game.dedServ = false;
+        }
+        Console.WriteLine("PASS: default Reisenberg owner binds on registration/join, honors unbind and reconnects safely");
+    }
+
+    static async Task TestPvp()
+    {
+        Game.netMode = NetmodeID.MultiplayerClient; Config.I.AiClient = true;
+        var self = Game.LocalPlayer;
+        var target = Game.player[1];
+        foreach (var other in Game.player) other.active = false;
+        self.active = target.active = true;
+        target.name = "搭档"; target.position = new System.Numerics.Vector2(100, 20);
+        Check(!PlayerCombat.Start(1, 1, 80, out var reason) && reason == "target_pvp_disabled" && !self.hostile, "disabled target PvP was ignored");
+        target.hostile = true; self.team = target.team = 2;
+        Check(!PlayerCombat.Start(1, 1, 80, out reason) && reason == "same_team", "same-team PvP was allowed");
+        self.team = 0;
+        Check(!PlayerCombat.Start(0, 1, 80, out reason) && reason == "self_target", "self attack was allowed");
+        Check(!PlayerCombat.Start(Game.maxPlayers, 1, 80, out reason) && reason == "invalid_player", "invalid player ID was allowed");
+        Check(!PlayerCombat.Start(1, 1, 80, out reason) && reason == "no_weapon_in_hotbar", "attack without weapon was allowed");
+        self.inventory[2] = new Terraria.Item { stack = 1, damage = 20, useStyle = 1, pick = 50 };
+        self.inventory[3] = new Terraria.Item { stack = 1, damage = 20, useStyle = 1 };
+        self.selectedItem = 2;
+        AgentPermissions.Attack = false;
+        Check(!PlayerCombat.Start(1, 1, 80, out reason) && reason == "attack_forbidden", "PvP bypassed attack permission");
+        AgentPermissions.Attack = true;
+        Check(PlayerCombat.Start(1, 1, 80, out reason), "valid PvP start failed: " + reason);
+        Check(self.hostile && Terraria.NetMessage.Sent.Last() == (30, self.whoAmI), "self PvP toggle was not synced");
+        PlayerCombat.Tick(self);
+        Check(self.controlUseItem && self.selectedItem == 3 && Cursor.X == 110 && Cursor.Y == 40, "PvP did not aim at player center with a weapon");
+        target.hostile = false; PlayerCombat.Tick(self);
+        Check(!PlayerCombat.Active && !self.controlUseItem && PlayerCombat.Outcome == "target_pvp_disabled", "target disabling PvP did not release attack");
+        target.hostile = true;
+        PlayerCombat.Start(1, 1, 80, out _);
+        target.dead = true; PlayerCombat.Tick(self);
+        Check(!PlayerCombat.Active && PlayerCombat.Outcome == "target_dead", "dead target did not stop attack");
+        target.dead = false;
+        PlayerCombat.Start(1, 1, 80, out _);
+        target.position = new System.Numerics.Vector2(5000, 0); PlayerCombat.Tick(self);
+        Check(!PlayerCombat.Active && PlayerCombat.Outcome == "out_of_range", "out-of-range target did not stop attack");
+        target.position = new System.Numerics.Vector2(100, 20);
+        var state = JsonNode.Parse(await Execute(AgentTools.State(default)));
+        Check(state["other_players"].AsArray().Count == 1 && state["other_players"][0]["id"].GetValue<int>() == 1
+            && state["other_players"][0]["pvp"].GetValue<bool>() && state["agent"]["player_id"].GetValue<int>() == 0,
+            "agent state does not expose real player identity and PvP status");
+        var result = JsonNode.Parse(await Execute(AgentTools.Execute("fight_player", JsonNode.Parse("{\"player_id\":1,\"seconds\":1}").AsObject(), default)));
+        Check(result["outcome"].ToString() == "duration_complete" && result["target_hp_before"].GetValue<int>() == target.statLife
+            && result["target_hp_after"].GetValue<int>() == target.statLife && !PlayerCombat.Active && !self.controlUseItem,
+            "PvP tool did not finish or invented damage: " + result.ToJsonString());
+        PlayerCombat.Start(1, 1, 80, out _); PlayerCombat.Tick(self); AgentTools.Stop();
+        Check(!PlayerCombat.Active && !self.controlUseItem, "agent stop left PvP firing");
+        Game.netMode = NetmodeID.SinglePlayer; Config.I.AiClient = false;
+        Console.WriteLine("PASS: production PvP validates players/teams/permissions, syncs toggle, aims, stops and reports actual HP");
+    }
+
+    sealed class NavHandler : HttpMessageHandler
+    {
+        int calls;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            string message = calls++ == 0
+                ? "{\"content\":null,\"tool_calls\":[{\"id\":\"nav\",\"type\":\"function\",\"function\":{\"name\":\"nav_to\",\"arguments\":\"{\\\"x\\\":100,\\\"y\\\":100}\"}}]}"
+                : "{\"content\":\"新任务完成\"}";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            { Content = new StringContent("{\"choices\":[{\"message\":" + message + "}]}", Encoding.UTF8, "application/json") });
+        }
+    }
+}

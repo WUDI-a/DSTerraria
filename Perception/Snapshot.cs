@@ -1,0 +1,220 @@
+namespace TerraBlind
+{
+	public sealed class HotbarSlot
+	{
+		public int Id;
+		public string Name = "";
+		public int Stack;
+		public int Damage;
+		public int Pick;
+		public int Axe;
+		public int Hammer;
+		public int CreateTile = -1;
+		public bool Consumable;
+		public string Category = "misc";
+	}
+
+	public sealed class SlotPosition
+	{
+		public int X;
+		public int Y;
+	}
+
+	public sealed class BuffEntry
+	{
+		public int Id;
+		public string Name = "";
+		public float TimeLeft;
+	}
+
+	public sealed class PlayerSnapshot
+	{
+		public int Hp;
+		public int MaxHp;
+		public int Mana;
+		public int MaxMana;
+		public float PosX;
+		public float PosY;
+		public float VelX;
+		public float VelY;
+		public float Width;
+		public float Height;
+		public string Direction = "right";
+		public bool OnGround;
+		public bool InLiquid;
+		public string Biome = "forest";
+		// combat-derived stats a player reads off the character panel, drive fight decisions.
+		public int Defense;
+		public int MinionSlots;     // used / max summon capacity
+		public int MaxMinionSlots;
+		public int Coins;           // total wealth in copper (1 platinum = 1,000,000)
+	}
+
+	// World-global state a player perceives at a glance: time of day, weather, active events, progression.
+	// This whole block was missing, the biggest completeness gap. "It's night / blood moon / hardmode" changes
+	// what's dangerous and what the bot should do.
+	public sealed class WorldSnapshot
+	{
+		public bool DayTime;
+		public double Time;         // raw Main.time (ticks into the current day/night segment)
+		public string Clock = "";   // human 24h clock, e.g. "19:30"
+		public bool Raining;
+		public float RainIntensity;
+		public bool Sandstorm;
+		public bool Hardmode;
+		public bool BloodMoon;
+		public bool Eclipse;
+		public bool DownedEyeOfCthulhu;
+		public bool DownedEvilBoss;   // Eater of Worlds / Brain of Cthulhu
+		public bool DownedSkeletron;
+		public bool DownedWallOfFlesh;
+		public string ActiveEvent = "";  // "" | goblin_army | blood_moon | eclipse | pirates | frost_legion | ...
+	}
+
+	public sealed class CameraSnapshot
+	{
+		public float ScreenPosX;
+		public float ScreenPosY;
+		public int ScreenWidth;
+		public int ScreenHeight;
+		public float Zoom;
+	}
+
+	public sealed class EquipmentSnapshot
+	{
+		public int SelectedSlot;
+		public HotbarSlot HeldItem = new HotbarSlot();
+		public HotbarSlot[] Hotbar = new HotbarSlot[10];
+		public HotbarSlot[] Inventory = new HotbarSlot[40];
+		public HotbarSlot[] Coins = new HotbarSlot[4];
+		public HotbarSlot[] Ammo = new HotbarSlot[4];
+		public SlotPosition[] SlotPositions = new SlotPosition[58];
+		public bool InventoryOpen;
+		public bool ChestOpen;
+		public bool SmartCursor;
+	}
+
+	public sealed class EnemyEntry
+	{
+		public int WhoAmI;
+		public int Type;
+		public string Name = "";
+		public float PosX;
+		public float PosY;
+		public float VelX;
+		public float VelY;
+		public float Width;
+		public float Height;
+		public int Hp;
+		public int MaxHp;
+		public bool Boss;
+		public float ScreenX;
+		public float ScreenY;
+	}
+
+	public sealed class TownNpcEntry
+	{
+		public int WhoAmI;
+		public int Type;
+		public string Name = "";
+		public string DisplayName = "";
+		public float PosX;
+		public float PosY;
+		public bool Homeless;
+	}
+
+	// SFlags bits: 0=active, 1=solid, 2=water, 3=lava, 4=honey, 5=shimmer, 6=solidTop(platform)
+	public struct TileRun
+	{
+		public ushort Type;
+		public byte SFlags;
+		public ushort Count;
+	}
+
+	public sealed class TileWindowSnapshot
+	{
+		public int OriginTileX;
+		public int OriginTileY;
+		public int Width;
+		public int Height;
+		public TileRun[][] Rows;
+	}
+
+	public sealed class WorldObjectEntry
+	{
+		public int TileX;
+		public int TileY;
+		public int Type;
+		public string Name = "";
+		public float PosX;
+		public float PosY;
+		public int Height;
+	}
+
+	public sealed class DroppedItemEntry
+	{
+		public int WhoAmI;
+		public int Type;
+		public string Name = "";
+		public int Stack;
+		public float PosX;
+		public float PosY;
+	}
+
+	public sealed class MovementSnapshot
+	{
+		public float JumpSpeed;
+		public int JumpHeight;
+		public float Gravity;
+		public float MaxRunSpeed;
+		public float AccRunSpeed;
+		public int WingTimeMax;
+		public bool NoFallDmg;
+		public bool LavaImmune;
+		public int LavaTime;
+		public int ExtraJumps;
+	}
+
+	public sealed class DetectedTileEntry
+	{
+		public string Name = "";
+		public int TileX;
+		public int TileY;
+		public int RelX;
+		public int RelY;
+	}
+
+	public sealed class Snapshot
+	{
+		public long Tick;
+		public bool WalkToEdgeDone;
+		public PlayerSnapshot Player = new PlayerSnapshot();
+		public WorldSnapshot World = new WorldSnapshot();
+		public EquipmentSnapshot Equipment = new EquipmentSnapshot();
+		public CameraSnapshot Camera = new CameraSnapshot();
+		public MovementSnapshot Movement = new MovementSnapshot();
+		public BuffEntry[] Buffs = new BuffEntry[0];
+		public EnemyEntry[] Enemies = new EnemyEntry[0];
+		public TownNpcEntry[] TownNpcs = new TownNpcEntry[0];
+		public TileWindowSnapshot Tiles = null;
+		public WorldObjectEntry[] Objects = new WorldObjectEntry[0];
+		public DroppedItemEntry[] DroppedItems = new DroppedItemEntry[0];
+		public string[] NearbyStations = new string[0];
+		public AvailableRecipeEntry[] AvailableRecipes = new AvailableRecipeEntry[0];
+		public DetectedTileEntry[] DetectedTiles = new DetectedTileEntry[0];
+	}
+
+	public sealed class AvailableRecipeEntry
+	{
+		public int ItemId;
+		public string ItemName = "";
+		public int ResultStack;
+		public IngredientEntry[] Ingredients = new IngredientEntry[0];
+	}
+
+	public sealed class IngredientEntry
+	{
+		public string Name = "";
+		public int Count;
+	}
+}

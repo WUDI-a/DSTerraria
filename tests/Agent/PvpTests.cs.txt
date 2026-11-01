@@ -1,0 +1,319 @@
+using System;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Numerics;
+using System.Text.Json.Nodes;
+using System.Threading;
+using System.Threading.Tasks;
+using TerraBlind;
+using Game = Terraria.Main;
+
+static class PvpTests
+{
+    static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
+
+    public static async Task Run()
+    {
+        var origin = new Vector2(0, 0);
+        var target = new Vector2(300, 0);
+        var straight = PvpTactics.Aim(origin, target, Vector2.Zero, 10, 0, (_, _) => true);
+        Check(straight.HasValue && Math.Abs(straight.Value.Y) < .01f, "straight projectile aim drifted");
+        var arc = PvpTactics.Aim(origin, target, Vector2.Zero, 10, .1f, (_, _) => true);
+        Check(arc.HasValue && arc.Value.Y < -30, "gravity did not produce elevated aim");
+        var delayed = PvpTactics.Aim(origin, target, Vector2.Zero, 10, .1f, (_, _) => true, 20);
+        Check(delayed.HasValue && delayed.Value.Y > arc.Value.Y, "delayed gravity treated as immediate drop");
+        var moving = PvpTactics.Aim(origin, target, new Vector2(0, -2), 10, 0, (_, _) => true);
+        Check(moving.HasValue && moving.Value.Y < -30, "moving target was not led");
+        var bodyAim = PvpTactics.Solve(origin, target, new Vector2(0, -2), 10, 0, (_, _) => true, kind: "body");
+        var velocityAim = PvpTactics.Solve(origin, target, new Vector2(0, -2), 10, 0, (_, _) => true);
+        Check(bodyAim.HasValue && velocityAim.HasValue && Math.Abs(bodyAim.Value.Point.Y) < .01f
+            && velocityAim.Value.Point.Y < -60 && velocityAim.Value.FlightFrames > 20, "aim intents collapsed or prediction still stops at 20 frames");
+        Check(PvpTactics.Aim(origin, target, Vector2.Zero, 10, 0, (_, _) => false) == null, "blocked projectile path was accepted");
+        Check(PvpTactics.Aim(origin, target, Vector2.Zero, 0, 0, (_, _) => true) == null, "invalid projectile speed accepted");
+        Console.WriteLine("PASS: PvP aiming handles straight/curved/delayed-drop trajectories, target lead and obstruction");
+
+        using var handler = new DecisionHandler();
+        using var http = new HttpClient(handler);
+        var scene = new JsonObject { ["movement_options"] = new JsonObject { ["hold"] = "stay", ["retreat"] = "away" },
+            ["weapon_modes"] = new JsonObject { ["ranged"] = "bow" }, ["strategy"] = "保持距离" };
+        var selected = await PvpTactics.Choose(http, "fake-key", scene, default);
+        Check(selected.Move == "retreat" && selected.WeaponMode == "ranged" && handler.Request["state"]["strategy"].ToString() == "保持距离", "strategy or weapon judgment missing");
+        Check(handler.Request["state"]["plans"].AsObject().All(pair => pair.Value["move"].ToString() is "hold" or "retreat"),
+            "blocked choices were offered to Jev");
+        handler.Choice = "approach";
+        try { await PvpTactics.Choose(http, "fake-key", scene, default); throw new Exception("unlisted move accepted"); }
+        catch (InvalidOperationException) { }
+        handler.Choice = "retreat"; handler.Mode = "melee";
+        try { await PvpTactics.Choose(http, "fake-key", scene, default); throw new Exception("unavailable weapon accepted"); }
+        catch (InvalidOperationException) { }
+        Console.WriteLine("PASS: PvP Jev request preserves strategy, filters unavailable moves and rejects invalid choices");
+
+        Game.netMode = Terraria.ID.NetmodeID.MultiplayerClient;
+        Config.I.AiClient = true;
+        AgentPermissions.Reset();
+        var self = Game.LocalPlayer; var other = Game.player[1];
+        self.active = other.active = self.hostile = other.hostile = true;
+        self.dead = other.dead = false; self.team = other.team = 0;
+        self.position = new Vector2(200, 400); other.position = new Vector2(600, 400);
+        self.velocity = Microsoft.Xna.Framework.Vector2.Zero;
+        foreach (var item in self.inventory) item.stack = 0;
+        self.inventory[0] = new Terraria.Item { type = 99, stack = 1, damage = 20, useStyle = 1, noMelee = true,
+            shoot = 1, useAmmo = Terraria.ID.AmmoID.Arrow, shootSpeed = 10, Name = "test bow" };
+        for (int x = 0; x < 100; x++) Game.tile[x, 27] = new Terraria.Tile { HasUnactuatedTile = true, TileType = 1 };
+        self.HasAmmunition = true;
+        bool Start(Func<JsonObject, CancellationToken, Task<PvpTactics.Decision>> choose) => PvpDuel.Start(1, 30, 0, 120, "拉扯", out _, choose);
+        try
+        {
+            Check(Start((_, _) => Task.FromResult(new PvpTactics.Decision("m1", "ranged"))), "duel failed to start");
+            PvpDuel.Tick(self); PvpDuel.Tick(self);
+            Check(self.controlRight && !self.controlLeft && self.controlUseItem && PvpDuel.Decisions == 1, "duel did not move and fire concurrently");
+            Check(!PvpDuel.RecoveryRequired, "ordinary attack updates unnecessarily woke the strategic Agent");
+            Terraria.Collision.Clear = false; PvpDuel.Tick(self);
+            Check(!self.controlUseItem, "duel fired into fully blocked trajectory");
+            for (int tick = 0; tick < 181; tick++) PvpDuel.Tick(self);
+            var blocked = PvpDuel.Report();
+            Check(blocked["recovery"]["required"].GetValue<bool>()
+                && blocked["events"].AsArray().Any(entry => entry["kind"].GetValue<string>() == "recovery_required"),
+                "persistent obstruction never requested concrete recovery");
+            Check(PvpDuel.RecoveryRequired, "persistent obstruction did not wake strategic review");
+            Terraria.Collision.Clear = true;
+            PvpDuel.Tick(self);
+            Check(!PvpDuel.Report()["recovery"]["required"].GetValue<bool>(), "recovery remained required after line opened");
+            AgentTools.Stop();
+            Check(!PvpDuel.Active && !self.controlRight && !self.controlJump && !self.controlUseItem, "stop left duel controls held");
+
+            var delayedChoice = new TaskCompletionSource<PvpTactics.Decision>();
+            Check(Start((_, _) => delayedChoice.Task), "delayed duel start failed");
+            PvpDuel.Tick(self); other.position += new Vector2(400, 0); delayedChoice.SetResult(new("m1", "ranged"));
+            PvpDuel.Tick(self);
+            Check(PvpDuel.Decisions == 1 && self.controlRight, "world displacement discarded a still-valid movement direction");
+            PvpDuel.Stop(); other.position = new Vector2(600, 400);
+            int requests = 0;
+            var slowFollowup = new TaskCompletionSource<PvpTactics.Decision>();
+            Check(Start((_, _) => ++requests == 1 ? Task.FromResult(new PvpTactics.Decision("m1", "ranged")) : slowFollowup.Task), "continuous movement duel failed");
+            PvpDuel.Tick(self); PvpDuel.Tick(self);
+            Check(requests == 2, "completed request still waited an extra 24 frames");
+            for (int tick = 0; tick < 120; tick++) PvpDuel.Tick(self);
+            Check(self.controlRight && PvpDuel.Active, "live-valid direction expired solely after 90 frames");
+            PvpDuel.Stop(); slowFollowup.SetResult(new("m1", "ranged"));
+
+            JsonObject observed = null;
+            Check(Start((state, _) => { observed = state; return Task.FromResult(new PvpTactics.Decision("m0", "ranged")); }), "observation duel start failed");
+            PvpDuel.Tick(self);
+            Game.projectile[0] = new Terraria.Projectile { active = true, arrow = true, friendly = true, owner = self.whoAmI, damage = 10,
+                whoAmI = 0, identity = 1, type = 1, velocity = new Microsoft.Xna.Framework.Vector2(12, 0) };
+            Game.projectile[1] = new Terraria.Projectile { active = true, friendly = true, owner = other.whoAmI, damage = 10,
+                Center = self.Center + new Microsoft.Xna.Framework.Vector2(30, 0) };
+            for (int tick = 0; tick < 25; tick++) PvpDuel.Tick(self);
+            Check(observed["trajectory_observed"].GetValue<bool>() && observed["movement_state"]["incoming_projectiles"].AsArray().Count == 1,
+                "own arrow observation or enemy friendly projectile detection failed");
+            self.HasAmmunition = false; PvpDuel.Tick(self);
+            Check(PvpDuel.Active && !self.controlUseItem && PvpDuel.Report()["events"].ToJsonString().Contains("no_usable_weapon"),
+                "missing ammunition was not reported to the supervising Agent");
+            self.HasAmmunition = true;
+            Check(Start((_, _) => Task.FromException<PvpTactics.Decision>(new HttpRequestException("fake failure"))), "failure duel start failed");
+            PvpDuel.Tick(self); PvpDuel.Tick(self);
+            Check(!PvpDuel.Active && PvpDuel.Outcome == "jev_request_failed", "Jev failure left duel running");
+            Check(Start((_, _) => Task.FromResult(new PvpTactics.Decision("m0", "ranged"))), "permission duel start failed");
+            AgentPermissions.Dodge = false; PvpDuel.Tick(self);
+            Check(!PvpDuel.Active && !self.controlUseItem, "movement permission did not stop duel");
+            AgentPermissions.Reset();
+            self.inventory[1] = new Terraria.Item { type = 100, stack = 1, damage = 10, useStyle = 1, Name = "test sword" };
+            self.ExtraJump = true;
+            Check(Start((state, _) => { observed = state; return Task.FromResult(new PvpTactics.Decision("m2", "melee")); }), "mixed weapon duel failed");
+            PvpDuel.Tick(self); self.itemAnimation = 5; PvpDuel.Tick(self);
+            Check(!observed["weapon_modes"]["melee"]["can_attack_now"].GetValue<bool>()
+                && observed["weapon_modes"]["ranged"]["can_attack_now"].GetValue<bool>(), "Jev was not told melee cannot reach while ranged can attack");
+            Check(observed["movement_state"]["threats"] == null && !observed["movement_options"].ToJsonString().Contains("Boss clearance"),
+                "PvP inherited Boss contact damage or clearance instructions");
+            Check(self.selectedItem == 0 && !self.controlUseItem, "weapon switched during animation or fired in wrong mode");
+            self.itemAnimation = 0; PvpDuel.Tick(self);
+            Check(self.selectedItem == 1 && !self.controlUseItem && self.controlJump && JevariaCombatExtraJump(),
+                "Jev weapon/movement judgment did not reach the driver or melee fired out of reach");
+            other.position = self.position + new Vector2(30, 0); PvpDuel.Tick(self);
+            Check(self.controlUseItem, "in-range melee did not attack");
+            for (int tick = 0; tick < 25; tick++) PvpDuel.Tick(self);
+            Check(observed["weapon_modes"]["melee"]["can_attack_now"].GetValue<bool>(), "in-range melee was not offered as attackable");
+            PvpDuel.Stop(); self.ExtraJump = false;
+            other.position = self.position + new Vector2(400, 0);
+            Check(Start((state, _) => { observed = state; return Task.FromResult(new PvpTactics.Decision("m1",
+                state["weapon_modes"]["melee"]["can_attack_now"].GetValue<bool>() ? "melee" : "ranged")); }), "adaptive weapon duel failed");
+            PvpDuel.Tick(self); PvpDuel.Tick(self);
+            Check(self.selectedItem == 0 && self.controlUseItem, "out-of-reach opponent did not receive ranged attacks");
+            other.position = self.position + new Vector2(30, 0);
+            for (int tick = 0; tick < 26; tick++) PvpDuel.Tick(self);
+            Check(self.selectedItem == 1 && self.controlUseItem, "near opponent did not allow melee switch");
+            other.position = self.position + new Vector2(400, 0);
+            for (int tick = 0; tick < 26; tick++) PvpDuel.Tick(self);
+            Check(self.selectedItem == 0 && self.controlUseItem, "leaving melee range kept chasing with an idle sword");
+            var dyingDecision = new TaskCompletionSource<PvpTactics.Decision>();
+            PvpDuel.Stop();
+            Check(Start((_, _) => Task.FromResult(new PvpTactics.Decision("m1", "ranged"))), "external action duel failed");
+            PvpDuel.Tick(self); PvpDuel.Tick(self);
+            long lease = PvpDuel.BeginAction("mine");
+            int remaining = PvpDuel.Report()["remaining_active_frames"].GetValue<int>();
+            self.controlUseItem = true;
+            PvpDuel.Tick(self);
+            Check(PvpDuel.ExternalAction && self.controlUseItem && PvpDuel.Report()["remaining_active_frames"].GetValue<int>() == remaining,
+                "combat stole tool input or spent its activity budget while suspended");
+            PvpDuel.EndAction(lease);
+            Check(!PvpDuel.ExternalAction && PvpDuel.Active && !self.controlUseItem, "external action failed to release input and resume");
+            lease = PvpDuel.BeginAction("place_at"); PvpDuel.Stop();
+            Check(Start((_, _) => Task.FromResult(new PvpTactics.Decision("m1", "ranged"))), "replacement session failed");
+            PvpDuel.EndAction(lease);
+            Check(PvpDuel.Active && !PvpDuel.ExternalAction && PvpDuel.Outcome == "running", "old action finally modified a new session");
+            PvpDuel.Stop();
+            self.inventory[2] = new Terraria.Item { type = 101, stack = 1, damage = 1, useStyle = 1,
+                noMelee = true, shoot = 1, shootSpeed = 20, Name = "fast low-damage weapon" };
+            Check(Start((state, _) => Task.FromResult(new PvpTactics.Decision("m1",
+                state["weapon_modes"].AsObject().First(pair => pair.Value["type"].GetValue<int>() == 101).Key, "body"))), "multi-weapon duel failed");
+            PvpDuel.Tick(self); PvpDuel.Tick(self);
+            Check(self.selectedItem == 2 && self.controlRight && self.controlUseItem,
+                "Jev could not select a specific lower-damage weapon while approaching");
+            PvpDuel.Stop(); self.inventory[2].stack = 0;
+            Check(Start((state, _) => Task.FromResult(new PvpTactics.Decision("m1",
+                state["weapon_modes"].AsObject().Count > 0 ? "ranged" : "", "body", state["weapon_modes"].AsObject().Count > 0))), "unarmed movement duel failed");
+            PvpDuel.Tick(self); PvpDuel.Tick(self);
+            self.HasAmmunition = false;
+            PvpDuel.Tick(self); PvpDuel.Tick(self);
+            Check(PvpDuel.Active && self.controlRight && !self.controlUseItem, "no-ammunition state stopped evasive movement");
+            self.HasAmmunition = true; PvpDuel.Stop();
+            Check(Start((_, _) => Task.FromResult(new PvpTactics.Decision("m1", "", "body", false))), "no-fire plan duel failed");
+            PvpDuel.Tick(self); PvpDuel.Tick(self);
+            Check(self.controlRight && !self.controlUseItem, "reposition-only plan either fired or stopped moving");
+            PvpDuel.Stop();
+            Check(Start((_, _) => dyingDecision.Task), "respawn duel failed");
+            PvpDuel.Tick(self); self.dead = true;
+            for (int tick = 0; tick < 2000; tick++) PvpDuel.Tick(self);
+            Check(PvpDuel.Active && PvpDuel.Outcome == "waiting_for_respawn" && !self.controlUseItem && !self.controlRight,
+                "death cancelled the duel, consumed its budget, or left controls pressed");
+            var native = new NativeAgent();
+            using var nativeCancel = new CancellationTokenSource();
+            typeof(NativeAgent).GetField("_running", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .SetValue(native, new TaskCompletionSource<bool>().Task);
+            typeof(NativeAgent).GetField("_cancel", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .SetValue(native, nativeCancel);
+            native.PostUpdateEverything();
+            Check(!nativeCancel.IsCancellationRequested && PvpDuel.Active, "NativeAgent cancelled the paused PvP tool on death");
+            int chatCount = AgentChat.Messages.Count;
+            NativeAgent.Progress("开始执行：combat_observe", "执行 combat_observe", false);
+            Check(AgentChat.Messages.Count == chatCount && NativeAgent.Status == "执行 combat_observe",
+                "silent combat progress either obscured chat or lost status");
+            dyingDecision.SetResult(new("m1", "melee"));
+            self.dead = false; PvpDuel.Tick(self);
+            Check(PvpDuel.Active && PvpDuel.Outcome == "running" && PvpDuel.Decisions == 0,
+                "respawn did not resume or reused a decision from before death");
+            PvpDuel.Stop();
+            self.dead = true; native.PostUpdateEverything();
+            Check(!nativeCancel.IsCancellationRequested, "death cancelled Agent work after the duel had stopped");
+            var staleAction = AgentTools.Execute("inventory_swap", new JsonObject(), default);
+            for (int step = 0; step < 5; step++) { native.PostUpdateEverything(); await Task.Delay(5); }
+            Check(!staleAction.IsCompleted, "dead player executed a world action before respawn");
+            self.dead = false;
+            var deadline = DateTime.UtcNow.AddSeconds(2);
+            while (!staleAction.IsCompleted)
+            {
+                Check(DateTime.UtcNow < deadline, "respawn action gate failed to return fresh state");
+                native.PostUpdateEverything(); await Task.Delay(5);
+            }
+            Check(JsonNode.Parse(await staleAction)["outcome"].ToString() == "interrupted_by_death",
+                "respawn replayed stale inventory arguments rather than requesting reevaluation");
+            Check(Start((_, _) => Task.FromResult(new PvpTactics.Decision("m1", "ranged"))), "stop while dead duel failed");
+            self.dead = true; PvpDuel.Tick(self); AgentTools.Stop(); self.dead = false;
+            Check(!PvpDuel.Active, "manual stop failed while waiting for respawn");
+            Check(PvpDuel.Start(1, 1, 0, 120, "直到喊停", out _,
+                (_, _) => Task.FromResult(new PvpTactics.Decision("m1", "ranged")), untilStopped: true), "unlimited duel failed");
+            for (int tick = 0; tick < 120; tick++) PvpDuel.Tick(self);
+            Check(PvpDuel.Active && PvpDuel.Report()["remaining_active_frames"] == null,
+                "until-stopped duel retained the finite duration limit");
+            int decisionsBeforeDeath = PvpDuel.Decisions;
+            other.dead = true;
+            for (int tick = 0; tick < 2000; tick++) PvpDuel.Tick(self);
+            Check(PvpDuel.Active && PvpDuel.Outcome == "waiting_for_target_respawn"
+                && PvpDuel.Decisions == decisionsBeforeDeath && !self.controlUseItem && !self.controlRight,
+                "target death ended combat, requested decisions or left inputs held");
+            self.dead = true; PvpDuel.Tick(self); self.dead = false; PvpDuel.Tick(self);
+            Check(PvpDuel.Active && !self.controlUseItem, "combat resumed before the target respawned");
+            other.dead = false; PvpDuel.Tick(self);
+            Check(PvpDuel.Active && PvpDuel.Outcome == "running", "target respawn did not resume the same session");
+            PvpDuel.Stop();
+            Check(!PvpDuel.Active, "explicit stop failed for unlimited combat");
+            var stale = new TaskCompletionSource<PvpTactics.Decision>();
+            JsonObject directiveScene = null;
+            Check(Start((state, _) => { directiveScene = state; return stale.Task; }), "directive duel failed");
+            PvpDuel.Tick(self);
+            long session = PvpDuel.Session;
+            var update = PvpDuel.UpdateDirective(new JsonObject { ["session"] = session, ["expected_revision"] = 0,
+                ["instructions"] = new JsonObject { ["aim"] = "封落点" },
+                ["constraints"] = new JsonObject { ["denied_types"] = new JsonArray(99, 100) } });
+            Check(update["ok"] != null && !self.controlUseItem && PvpDuel.Active, "restriction update restarted duel or allowed forbidden input");
+            stale.SetResult(new("m1", "ranged")); PvpDuel.Tick(self);
+            Check(PvpDuel.Decisions == 0 && !self.controlUseItem, "old decision survived instruction update");
+            Check(PvpDuel.Report()["directive"]["instructions"]["aim"].ToString() == "封落点", "report omitted active instruction");
+            PvpDuel.Stop();
+        }
+        finally
+        {
+            PvpDuel.Stop(); AgentPermissions.Reset(); Terraria.Collision.Clear = true;
+            Game.projectile[0].active = Game.projectile[1].active = false;
+            Game.netMode = Terraria.ID.NetmodeID.SinglePlayer; Config.I.AiClient = false;
+        }
+        Console.WriteLine("PASS: production duel revalidates displacement, dispatches without a 24-frame delay, retains valid movement, switches weapons and cancels stale instructions; movement adapter stubbed");
+        Console.WriteLine("PASS: external action leases preserve tool input and activity budget, resume once and reject old-session cleanup");
+    }
+
+    static bool JevariaCombatExtraJump() => TerraBlind.JevariaCombat.GameMovement.ExtraJumpObserved;
+
+    sealed class DecisionHandler : HttpMessageHandler
+    {
+        public JsonObject Request;
+        public string Choice = "retreat";
+        public string Mode = "ranged";
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            Check(request.Headers.Authorization?.Parameter == "fake-key", "Jev authentication missing");
+            Request = JsonNode.Parse(await request.Content.ReadAsStringAsync(token)).AsObject();
+            string selected = Request["state"]["plans"].AsObject().FirstOrDefault(pair => pair.Value["move"].ToString() == Choice
+                && pair.Value["weapon"].ToString() == Mode).Key ?? "invalid";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            { Content = new StringContent(new JsonObject { ["answers"] = new JsonObject { ["plan"] = new JsonObject { ["choice"] = selected } } }.ToJsonString()) };
+        }
+    }
+
+    public static async Task Smoke()
+    {
+        string configPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Library/Application Support/Terraria/tModLoader/ModConfigs/TerraBlind_Config.json");
+        var config = JsonNode.Parse(await System.IO.File.ReadAllTextAsync(configPath));
+        string key = config["TypeSafeKey"]?.GetValue<string>();
+        Check(!string.IsNullOrWhiteSpace(key), "No configured TypeSafe key for live smoke");
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        for (int i = 0; i < 3; i++)
+        {
+            var scene = new JsonObject
+            {
+                ["strategy"] = "持续追击目标，近距离用 Volcano 接触近战；利用跳跃、额外跳追上并躲避攻击。",
+                ["movement_options"] = new JsonObject { ["stay"] = "保持", ["left"] = "向左小幅移动", ["right"] = "向右小幅移动",
+                    ["up"] = "向上跳跃或使用额外跳", ["up_right"] = "向右跳跃，必要时使用额外跳或飞行" },
+                ["weapon_modes"] = new JsonObject {
+                    ["melee"] = new JsonObject { ["name"] = "Volcano", ["damage"] = 40, ["contact_reach_pixels"] = 60,
+                        ["can_attack_now"] = i == 1, ["description"] = "接触近战，需要够到目标" },
+                    ["ranged"] = new JsonObject { ["name"] = "Molten Fury", ["damage"] = 31, ["shoot_speed"] = 8,
+                        ["can_attack_now"] = true, ["description"] = "弓箭，需要射界" } },
+                ["current_mode"] = "melee",
+                ["dx"] = i == 1 ? 30 : 400, ["dy"] = 0,
+                ["self_hp"] = i == 1 ? 50 : 100, ["target_hp"] = 100,
+                ["aim_clear"] = i != 2, ["target_vx"] = -3, ["target_vy"] = 0,
+                ["previous_choice"] = "hold", ["moved_pixels"] = 0,
+                ["nearby_projectiles"] = new JsonArray()
+            };
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var choice = await PvpTactics.Choose(http, key, scene, default);
+            Check(scene["movement_options"].AsObject().ContainsKey(choice.Move), "invalid live decision");
+            if (i != 1) Check(choice.WeaponMode == "ranged", "Live Jev kept out-of-reach melee despite an attackable ranged weapon");
+            Console.WriteLine($"PVP_SMOKE scene={i} choice={choice.Move} mode={choice.WeaponMode} ms={clock.ElapsedMilliseconds} mock_world=true");
+        }
+        Console.WriteLine("PVP_SMOKE_COMPLETE checks=3 mock_world=true");
+    }
+}

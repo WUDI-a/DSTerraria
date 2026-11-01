@@ -1,0 +1,91 @@
+using System;
+using System.Linq;
+using System.Reflection;
+using Microsoft.Xna.Framework;
+using Terraria;
+using Terraria.ID;
+using TerraBlind.JevariaCombat;
+using Game = Terraria.Main;
+
+class Program
+{
+    static void Check(bool condition, string message)
+    {
+        if (!condition) throw new Exception(message);
+    }
+
+    static void Main()
+    {
+        Terraria.Program.SavePath = "/tmp/terrablind-pvp-port-tests/world";
+        Run();
+    }
+
+    static void Run()
+    {
+        typeof(Terraria.ModLoader.ExtraJumpLoader).GetMethod("ResizeArrays", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, null);
+        Game.maxTilesX = Game.maxTilesY = 300;
+        Game.tile = (Tilemap)Activator.CreateInstance(typeof(Tilemap), BindingFlags.Instance | BindingFlags.NonPublic,
+            null, new object[] { (ushort)300, (ushort)300 }, null);
+        Game.projectile = Enumerable.Range(0, 1000).Select(_ => new Projectile()).ToArray();
+        var self = new Player { active = true, whoAmI = 0, name = "AI", position = new Vector2(2000, 2000), velocity = new Vector2(0, -2) };
+        var target = new Player { active = true, hostile = true, whoAmI = 1, name = "opponent", position = new Vector2(2200, 2000) };
+        Game.player[0] = self; Game.player[1] = target; Game.myPlayer = 0;
+        var sensor = new GameSensor();
+        var snapshot = sensor.CapturePlayer(self, target, 1, DodgeIntent.Idle, 0);
+        var intent = new DodgeIntent(DodgeDirection.UpRight, Magnitude.Small, Magnitude.Small, false);
+        Check(snapshot.AvailableActions.Any(option => option.Intent == intent), "Missing rising movement option");
+        var driver = new GameMovement();
+        driver.Apply(self, intent, snapshot with { CanDoubleJump = true });
+        Check(self.controlRight && self.controlJump, "Shared executor did not press right/jump");
+        driver.Apply(self, intent, snapshot with { Sequence = 2, CanDoubleJump = true });
+        Check(!self.controlJump, "Extra jump did not release the held key");
+        driver.Apply(self, intent, snapshot with { Sequence = 2, CanDoubleJump = true });
+        Check(self.controlJump, "Extra jump did not repress the key");
+        driver.Apply(self, intent, snapshot with { Sequence = 3, CanDoubleJump = true });
+        Check(!self.controlJump, "Next extra jump did not release");
+        driver.Apply(self, intent, snapshot with { Sequence = 3, CanDoubleJump = true });
+        Check(self.controlJump, "Next extra jump did not repress");
+        var solid = new BoundaryDistances(1600, 100, 1600, 1600);
+        var world = new BoundaryDistances(2000, 2000, 2000, 2000);
+        Check(GameMovement.Blocked(1, 0, solid, world, Vector2.Zero), "Boss reserve default changed");
+        Check(!GameMovement.Blocked(1, 0, solid, world, Vector2.Zero, snapshot.MovementReserveScale), "PvP retained the large Boss reserve");
+        Check(GameMovement.Blocked(1, 0, solid with { Right = 10 }, world, Vector2.Zero, snapshot.MovementReserveScale), "PvP ignored a close wall");
+        self.miscEquips[3].type = ItemID.SlimySaddle;
+        snapshot = sensor.CapturePlayer(self, target, 4, intent, 0);
+        Check(snapshot.HasMount && snapshot.AvailableActions.Any(option => option.Intent.VerticalSize == Magnitude.Large), "Equipped mount was not offered");
+        Game.tileSolid[TileID.Dirt] = true;
+        for (int y = 124; y <= 130; y++)
+        {
+            var tile = Game.tile[132, y];
+            tile.HasTile = true;
+            tile.TileType = TileID.Dirt;
+        }
+        var trace = TerraBlind.PvpTerrain.Trace(self.Center, target.Center);
+        Check(!trace["clear"].GetValue<bool>() && trace["blocker"]["x"].GetValue<int>() == 132, "real collision did not identify the blocking wall");
+        var terrain = TerraBlind.PvpTerrain.Observe(self, target, true);
+        var window = terrain["tile_windows"][0];
+        Check(window["width"].GetValue<int>() == 65 && window["height"].GetValue<int>() == 41, "tile window dimensions drifted");
+        Check(window["rows"].AsArray().All(row => row.AsArray().Sum(run => run[0].GetValue<int>()) == 65), "RLE lost tile positions");
+        for (int x = 130; x <= 142; x++)
+        {
+            var tile = Game.tile[x, 140]; tile.HasTile = true; tile.TileType = TileID.Dirt;
+        }
+        target.velocity = new Vector2(0, 4);
+        var landing = TerraBlind.PvpTerrain.Landing(target, .4f);
+        Check(landing.HasValue && landing.Value.Point.Y + target.height / 2f == 140 * 16, "falling estimate did not use actual support height");
+        target.position.Y = 140 * 16 - target.height; target.velocity = new Vector2(4, 0);
+        var exit = TerraBlind.PvpTerrain.PlatformExit(target);
+        Check(exit.HasValue && exit.Value.X == 142 * 16 + 8, "platform edge was invented or misplaced");
+        float stanceX = 136 * 16 + 8, stanceY = 140 * 16 - self.height / 2f;
+        Check(TerraBlind.PvpTerrain.ValidStance(self, stanceX, stanceY), "supported free stance rejected");
+        var support = Game.tile[136, 140]; support.HasTile = false;
+        Check(!TerraBlind.PvpTerrain.ValidStance(self, stanceX, stanceY), "removed support accepted for recovery");
+        Check(!TerraBlind.PvpTerrain.ValidStance(self, float.NaN, stanceY), "nonfinite recovery coordinate accepted");
+        Console.WriteLine("PVP_PORT_CHECKS_COMPLETE checks=18 real_engine_objects=true gameplay_loop=false");
+    }
+}
+
+namespace TerraBlind
+{
+    public static class DiagLog { public static void Write(string text) => Console.WriteLine(text); }
+}

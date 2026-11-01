@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IntermediateOutputPath>/tmp/terrablind-agent-tests/obj/</IntermediateOutputPath>
+    <OutputPath>/tmp/terrablind-agent-tests/bin/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Agent/Conversation.cs" Link="Conversation.cs" />
+    <Compile Include="../../Agent/CodexAgent.cs" Link="CodexAgent.cs" />
+    <Compile Include="CodexTests.cs.txt" />
+    <Compile Include="../../Agent/NativeAgent.cs" Link="NativeAgent.cs" />
+    <Compile Include="../../Agent/AgentTools.cs" Link="AgentTools.cs" />
+    <Compile Include="../../Infra/AgentNetwork.cs" Link="AgentNetwork.cs" />
+    <Compile Include="../../Flow/PlayerCombat.cs" Link="PlayerCombat.cs" />
+    <Compile Include="../../Flow/PvpTactics.cs" Link="PvpTactics.cs" />
+    <Compile Include="../../Flow/PvpDuel.cs" Link="PvpDuel.cs" />
+    <Compile Include="../../Flow/PvpDirective.cs" Link="PvpDirective.cs" />
+    <Compile Include="../../Flow/PvpSession.cs" Link="PvpSession.cs" />
+    <Compile Include="../../Flow/PvpHistory.cs" Link="PvpHistory.cs" />
+    <Compile Include="../../Flow/PvpTerrain.cs" Link="PvpTerrain.cs" />
+    <Compile Include="../../Flow/PvpInventory.cs" Link="PvpInventory.cs" />
+    <Compile Include="DirectiveTests.cs.txt" />
+    <Compile Include="HistoryTests.cs.txt" />
+    <Compile Include="InventoryTests.cs.txt" />
+    <Compile Include="../../Jev/Port/Contracts.cs" Link="Contracts.cs" />
+    <Compile Include="../../Jev/Port/DecisionFacts.cs" Link="DecisionFacts.cs" />
+    <Compile Include="PvpTests.cs.txt" />
+    <Compile Include="MovementStubs.cs.txt" />
+    <Reference Include="FNA">
+      <HintPath Condition="'$(HOME)' != '' And Exists('$(HOME)/Library/Application Support/Steam/steamapps/common/tModLoader/Libraries/FNA/1.0.0/FNA.dll')">$(HOME)/Library/Application Support/Steam/steamapps/common/tModLoader/Libraries/FNA/1.0.0/FNA.dll</HintPath>
+      <HintPath Condition="!Exists('$(HOME)/Library/Application Support/Steam/steamapps/common/tModLoader/Libraries/FNA/1.0.0/FNA.dll')">D:\Apps\steam\steamapps\common\tModLoader\Libraries\FNA\1.0.0\FNA.dll</HintPath>
+    </Reference>
+    <Compile Include="../../Agent/WoodHarvest.cs" Link="WoodHarvest.cs" />
+    <Compile Include="WoodHarvestTests.cs.txt" />
+    <Compile Include="Program.cs.txt" />
+    <Compile Include="RuntimeTests.cs.txt" />
+    <Compile Include="GameStubs.cs.txt" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,486 @@
+using Microsoft.Xna.Framework;
+using Terraria;
+
+namespace TerraBlind
+{
+    // Receding-horizon nav (MVP, branch experiment). Instead of planning the whole route open-loop, each cycle plans
+    // only a SHORT window from the player's REAL position toward the final goal (big field as h, tiny exp budget →
+    // returns the furthest standable cell it reached = the window), executes it, then re-plans from the new real
+    // position. Drift can't accumulate (every window starts from reality); no切片, no接力 realign needed beyond the
+    // one DispatchPlan does. Window A* is still complete within its budget (not greedy), it can back up locally.
+    public static class RecedingNav
+    {
+        public static bool Active;
+        // outcome of the last run, for the HTTP bridge: null while running/never-ran,
+        // "done" | "walled_in" | "loop_unresolved" | "stopped" after it ends.
+        public static string LastStop;
+        const string Owner = "recede";
+        static string _waitOn = "";   // 上一次被谁挡的,变了才打日志
+        static int _goalWx, _goalWy;
+        // 三种目标语义:
+        //   Snap。悬空目标掉到下面的地面,到达=人站在那格上。走路默认。
+        //   Mine。不 snap,到达=目标格被挖空。挖矿:目标是岩石里的矿,身体(2x3)根本站不上去。
+        //   Stand。不 snap,到达=人站在那格上。房址:目标本来就悬空,必须真站上去。
+        // Reach = 目标悬空,站不上去也放不了东西,人挨着它伸手就算到
+        public enum Mode { Snap, Mine, Stand, Reach }
+        static Mode _mode;
+        const float GoalDistPx = 24f;
+        const float StandDistPx = 8f;    // 建房契约要求脚踩准那一格,±24px 会站到隔壁列
+        const int StandSwitch = 20;      // 离目标这么近就把最后一段交给 A*
+        const int StandMaxTries = 3;     // A* 连着搜不到就认输,别让 greedy 在这地形上空转
+        static int _standTries;
+        static (int, int)? _standCell;   // 上次搜不出路时人在哪。同一格不重复计次
+        static bool _braking;   // 位置到了,正在刹停
+        static (int, int)? _lastFrom;    // cell the last edge started FROM (to key the attention mismatch report)
+        static (int, int)? _lastTarget;  // cell the last edge planned to land on (compared to the real landing)
+        static bool _haveLast;
+        static bool _lastPillar;         // pillar 边只承诺往上,判到没到时要放宽行号
+        static float _lastLandPx, _lastLandPy;   // 上条边【规划】的像素落点,MISS 时和真实落点比
+
+        // 打转由 StateSpacePlanner 的进度地板在选边时掐掉;这里只留 _bestH/_ring 供日志读
+        static int _bestH;
+        static readonly System.Collections.Generic.List<(int fx, int fy, int tx, int ty, int h)> _ring = new();
+        const int RingLen = 24;
+        static (int, int)? _prevCell;
+
+        public static void Toggle()
+        {
+            if (Active) { Stop(); Chatter.Say("[TerraBlind] receding nav OFF"); return; }
+            int mx = (int)((Main.mouseX + Main.screenPosition.X) / 16f);
+            int my = (int)((Main.mouseY + Main.screenPosition.Y) / 16f);
+            Start(mx, my);
+        }
+
+        // 场会过期:自己挖/放的多了、换镐、人走出 flood box。三者都触发后台重建,旧场先顶着用
+        const int RebuildAltered = 40;      // our altered tiles before a background re-flood (coarse; big-方向 shifts need dozens of tiles)
+        static int _altered;
+        static volatile bool _rebuilding;
+        // 同一格重建过还在场外 = 那格 Dijkstra 根本到不了(不是场旧了)。再建多少次都一样,
+        // 而 off-field 分支直接 return,人连安全逃逸步都跑不到。每 50 帧烧 420ms 建场,永不停。
+        static (int, int) _offFieldCell = (int.MinValue, int.MinValue);
+        static int _offFieldTries;
+        // 换目标=换场,建一次 ~500ms/70万格。GetField 会在主线程内联建 → 每周期一次可见卡顿,所以丢后台
+        static void SwitchFieldAsync(int gx, int gy, string why)
+        {
+            _fieldReady = false;
+            DiagLog.Write($"[recede] field SWITCH ({why}) → ({gx},{gy})");
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try { MazeWand.GetField(gx, gy); RecedingVis.SetField(gx, gy); }
+                catch (System.Exception e) { DiagLog.Write($"[recede] switch EXC {e.Message}"); }
+                finally { _fieldReady = true; }
+            });
+        }
+
+        static void RebuildFieldAsync(string why)
+        {
+            if (_rebuilding) return;
+            _rebuilding = true; _altered = 0;
+            // 重建的 box 锚在当前位置,格子的 H 会整体变(有的格子新进场,有的出场)。地板记的是旧场的数,
+            // 换了尺子还留着就会把正常的一步误判成"没前进" → 一路 PUSH。所以重建时清掉。
+            StateSpacePlanner.ResetFloor();
+            int gx = _goalWx, gy = _goalWy;
+            var p = Main.LocalPlayer;
+            int sx = p != null ? (int)(p.Center.X / 16f) : gx;
+            int sy = p != null ? (int)((p.position.Y + p.height) / 16f) - 1 : gy;
+            DiagLog.Write($"[recede] field REBUILD ({why}) anchor=({sx},{sy})");
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try { MazeWand.Rebuild(gx, gy, sx, sy); }
+                catch (System.Exception e) { DiagLog.Write($"[recede] rebuild EXC {e.Message}"); }
+                finally { _rebuilding = false; }
+            });
+        }
+
+        // 顺路砸罐子(出绳子/金币/火把,赶路白捡)。和 SmashWeb 同套路,只是范围不同:
+        // 网必须重叠身体才碍事,罐子是够得到就砸,所以用原版 gate 挖掘的 IsInTileInteractionRange。
+        static void SmashPot(Player p)
+        {
+            int cx = (int)((p.position.X + p.width / 2f) / 16f);
+            int cy = (int)((p.position.Y + p.height / 2f) / 16f);
+            const int scan = 8;
+            for (int x = cx - scan; x <= cx + scan; x++)
+                for (int y = cy - scan; y <= cy + scan; y++)
+                {
+                    if (x < 0 || y < 0 || x >= Main.maxTilesX || y >= Main.maxTilesY) continue;
+                    var t = Main.tile[x, y];
+                    if (!t.HasTile || t.TileType != Terraria.ID.TileID.Pots) continue;
+                    if (!Reach.CanMine(p, x, y)) continue;
+                    int slot = -1, bp = 0;
+                    for (int i = 0; i < 10; i++)
+                    { var it = p.inventory[i]; if (it != null && !it.IsAir && it.pick > bp) { bp = it.pick; slot = i; } }
+                    if (slot < 0) return;
+                    p.selectedItem = slot;
+                    Main.SmartCursorWanted_Mouse = false;
+                    Cursor.AimTile(x, y);
+                    if (p.itemTime == 0) p.controlUseItem = true;
+                    return;
+                }
+        }
+
+        static void SmashWeb(Player p)
+        {
+            int x0 = (int)(p.position.X / 16f), x1 = (int)((p.position.X + p.width) / 16f);
+            int y0 = (int)(p.position.Y / 16f), y1 = (int)((p.position.Y + p.height) / 16f);
+            for (int x = x0; x <= x1; x++)
+                for (int y = y0; y <= y1; y++)
+                {
+                    if (x < 0 || y < 0 || x >= Main.maxTilesX || y >= Main.maxTilesY) continue;
+                    var t = Main.tile[x, y];
+                    if (!t.HasTile || t.TileType != Terraria.ID.TileID.Cobweb) continue;
+                    int slot = -1, bp = 0;
+                    for (int i = 0; i < 10; i++)
+                    { var it = p.inventory[i]; if (it != null && !it.IsAir && it.pick > bp) { bp = it.pick; slot = i; } }
+                    if (slot < 0) return;
+                    p.selectedItem = slot;
+                    Main.SmartCursorWanted_Mouse = false;
+                    Cursor.AimTile(x, y);
+                    if (p.itemTime == 0) p.controlUseItem = true;
+                    return;
+                }
+        }
+
+        static volatile bool _fieldReady;
+        public static void Start(int goalWx, int goalWy, bool exact = false)
+            => Start(goalWx, goalWy, exact ? Mode.Mine : Mode.Snap);
+
+        public static void Start(int goalWx, int goalWy, Mode mode)
+        {
+            // 【同一个目标已经在跑就别重来】。Start 会作废建场任务、清掉 Commitment/Trap
+            // 的全部记录。每帧调一次的话场永远建不完,人一步不动,屏幕刷满 building field
+            // (现场:WofPrep 的兜底每帧调,日志 6413~6857 连着几百条)。
+            // 调用方少写一个 if 就会这样,所以守在这里,不指望每个调用点都记得
+            // 【先落地再比】。Snap 会把 goalWy 改写成真正站得住的那一行,存下来的是改写后的值;
+            // 拿原始值去比永远不相等,守卫等于没写
+            if (mode == Mode.Snap)
+                goalWy = StateSpacePlanner.SnapGoalToStandable(goalWx, goalWy);   // clicked air → fall to ground (same as navwand)
+            if (Active && _goalWx == goalWx && _goalWy == goalWy && _mode == mode) return;
+            StateSpacePlanner.StopNav();
+            _mode = mode;
+            // 按【在不在地狱】开,不按模式开:Stand 那一段照样会掉熔岩,而掉了就是重开。
+            StateSpacePlanner.PreciseMode = goalWy >= Main.UnderworldLayer
+                || ActExecutor.OriginCy(Main.LocalPlayer) >= Main.UnderworldLayer;
+            _standTries = 0;
+            _braking = false;
+            _goalWx = goalWx; _goalWy = goalWy; Active = true; LastStop = null; _haveLast = false; _lastTarget = null; _lastFrom = null;
+            _bestH = int.MaxValue; _ring.Clear(); _prevCell = null;
+            StateSpacePlanner.ResetFloor();   // 换目标=换场,旧地板的 H 是另一把尺子上的数,留着会误判
+            Commitment.Reset();               // 承诺和它的失败记录属于这一趟,别带进下一趟
+            Trap.Reset();                     // 卡点记录也是按趟算的
+            TrapEscape.Reset();
+            StuckSentinel.Reset();
+            StateSpacePlanner.ResetLineProgress();
+            _altered = 0;
+            // build the big field (110万格 Dijkstra ≈ 1.5s) OFF the main thread so the keypress doesn't freeze the game.
+            // Tick waits on _fieldReady; the player just stands a moment until the compass is built.
+            _fieldReady = false;
+            int gx = goalWx, gy = goalWy;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try { MazeWand.GetField(gx, gy); RecedingVis.SetField(gx, gy); _fieldReady = true; }
+                catch (System.Exception e) { DiagLog.Write($"[recede] field build EXC {e.Message}"); _fieldReady = true; }
+            });
+            EventLog.W(Ev.Goal, $"new goal ({goalWx},{goalWy}) — building field");
+            Chatter.Say($"[TerraBlind] receding nav → ({goalWx},{goalWy}) (building field…)");
+        }
+
+        public static void Stop()
+        {
+            // 刹车没停稳就被外部叫停:别让 SettleAt 留在后台继续抢控制
+            if (_braking) { SettleAt.Stop(); _braking = false; }
+            if (Active && LastStop == null) LastStop = "stopped";
+            if (Active)   // only fire on an actual running→stopped transition
+                HttpServerSystem.PushEvent("nav_done", "{\"result\":\"" + (LastStop ?? "stopped") + "\"}");
+            Active = false;
+            AxisLock.Release(Owner);   // 停了就放锁,别让下一个动作等一个已经不跑的持有者
+            StateSpacePlanner.StopNav();
+            RecedingVis.Clear();
+        }
+
+        // per-frame driver (called from SetControls). When the current window finishes (or none running), plan the
+        // next window from the real position and dispatch it. The existing TickSteps/ApplyControls execute it.
+        // 【异常不许静默】。SetControls 外层会把抛出来的东西吞掉,现象就是人每帧重试同一条边、
+        // 一个像素不动、plan 日志一片空白,而看日志的人以为是选边逻辑的毛病(现场 2000 帧)。
+        public static void Tick()
+        {
+            try { TickInner(); }
+            catch (System.Exception e)
+            {
+                EventLog.W(Ev.Fail, $"TICK EXC {e.GetType().Name}: {e.Message} @ {e.StackTrace?.Split('\n')[0]?.Trim()}");
+                Stop();   // 抛了就别装作还在导航 --- 上游据此换别的办法,总比每帧重试同一下强
+                LastStop = "exception";
+            }
+        }
+
+        static void TickInner()
+        {
+            if (!Active) return;
+            if (!_fieldReady) return;          // field still building off-thread → wait (player stands a moment)
+            var p = Main.LocalPlayer;
+            if (p == null || !p.active) { Stop(); return; }
+
+            // 【别人正拿着控制权就这一帧不动】。岩浆堤放一格要 90 帧,期间寻路把人挪走
+            // 就 out_of_reach 作废(日志 29503 开填、29625"被挪开了"),两边都白干。
+            // 不 Stop 自己:导航是长期状态,停了整段就没了;等它放开接着走。
+            if (!AxisLock.Take(Owner, Ax.Move | Ax.Jump | Ax.Vertical | Ax.Use, () => Active))
+            {
+                if (_waitOn != AxisLock.Held(Ax.Move))
+                {
+                    _waitOn = AxisLock.Held(Ax.Move);
+                    DiagLog.Write($"[recede] 等 {_waitOn} 放开控制权 ({AxisLock.Dump()})");
+                }
+                return;
+            }
+            _waitOn = "";
+
+            // 蜘蛛网压身体会把移动拖到爬(原版要 20-100 tick 才顶开),一镐就没,所以主动砸
+            if (!StateSpacePlanner.PreserveTerrain) SmashWeb(p);
+            // 抢同一帧的 controlUseItem,网优先(网拖慢移动,罐子晚一帧无所谓)
+            if (!StateSpacePlanner.PreserveTerrain && !p.controlUseItem) SmashPot(p);
+
+            // EXACT (mining): the goal is a solid ore the body can't stand on, arrival is the tile being MINED OUT.
+            // The field digs a shaft toward it; the moment that cell is no longer a block, we've reached (dug) it.
+            if (_mode == Mode.Mine)
+            {
+                if (!Predicates.IsSolid(_goalWx, _goalWy))
+                { DiagLog.Write("[recede] exact goal mined out"); LastStop = "done"; Stop(); Chatter.Say("[TerraBlind] receding nav done (mined)"); return; }
+            }
+            else if (_mode == Mode.Reach)
+            {
+                // 位置到了先【刹停】再交班:直接 Stop 是撒手,残余横速会把人冲出桥面掉下去,
+                // 而掉下去之后 SettleAt 只能左右挪、救不回来。刹车期间 Active 仍为真,调用方不会插队
+                if (_braking)
+                {
+                    if (SettleAt.IsRunning) return;
+                    DiagLog.Write($"[recede] 停稳了 goal=({_goalWx},{_goalWy}) 人=({ActExecutor.OriginCx(p)},{ActExecutor.OriginCy(p)})");
+                    _braking = false; LastStop = "done"; Stop(); return;
+                }
+                // 【够得着 = 手能碰到,按最窄的那把尺子算】。Mode.Reach 的调用方是开箱/挖那种
+                // "凑近了就行"的活,而交互(右键开箱)的范围只有 tileRangeX,不含 blockRange
+                // 拿 CanPlace 判就会在够不着的地方报"到了",人站定却开不了箱。
+                if (p.velocity.Y == 0f
+                    && Reach.CanInteract(p, _goalWx, _goalWy))
+                {
+                    DiagLog.Write($"[recede] 够到了 goal=({_goalWx},{_goalWy}) 人=({ActExecutor.OriginCx(p)},{ActExecutor.OriginCy(p)}) vx={p.velocity.X:0.##}");
+                    if (System.MathF.Abs(p.velocity.X) > SettleAt.VxDead
+                        && SettleAt.Start(Predicates.PillarCol(p), out _))
+                    { _braking = true; return; }
+                    // 不弹聊天框:Reach 会被调用方反复重启(每次都"到了"),弹一次就刷一次屏
+                    LastStop = "done"; Stop(); return;
+                }
+            }
+            else
+            {
+                float gx = _goalWx * 16f + 8f, gy = (_goalWy + 1) * 16f;
+                float cx = p.Center.X, fy = p.position.Y + p.height;
+                // Stand 的契约是"脚踩着那一格开工",±24px 会让人站在隔壁列上就报到达。建房那边整套
+                // 局部坐标就全偏一格。收到半格,并且要求真落地。
+                float tol = _mode == Mode.Stand ? StandDistPx : GoalDistPx;
+                if (System.Math.Abs(cx - gx) <= tol && System.Math.Abs(fy - gy) <= tol
+                    && (_mode != Mode.Stand || p.velocity.Y == 0f))
+                {
+                    DiagLog.Write($"[recede] reached goal mode={_mode} goal=({_goalWx},{_goalWy}) dx={cx - gx:0.#} dy={fy - gy:0.#} body=({ActExecutor.OriginCx(p)},{ActExecutor.OriginCy(p)})");
+                    LastStop = "done"; Stop(); Chatter.Say("[TerraBlind] receding nav done"); return;
+                }
+            }
+
+            // 每帧判卡死(不只在重规划边界):~0.5s 内走安全步,真平线 6-8s 才放弃这一段。它挪的时候占用本帧控制
+            if (StuckSentinel.Tick(p, _goalWx, _goalWy))
+            {
+                // 【判死之前先叫一次 A*】。sentinel 数满四次说的正是"贪心蹭不动了",
+                // 而那恰恰是 A* 该接手的时刻。可 A* 的唯一入口是 Trap(候选里没有一条降 H),
+                // 黑曜石那种"每步降 3 分却走不出去"的局面够不上 Trap,A* 从头到尾没被叫过。
+                // 现场:(1040,953) 下面一整片黑曜石,场知道要绕(往右挖穿几格或从左边走),
+                // 可那收益要走十几格才兑现,贪心只看下一步,在 1036~1044 来回蹭到判死。
+                var scell = ActExecutor.OriginCx(p);
+                var sfield = MazeWand.PeekFieldOrNull(_goalWx, _goalWy);
+                int scy = ActExecutor.OriginCy(p);
+                int sh = sfield != null && sfield.TryGetValue((scell, scy), out int h0) ? h0 : int.MaxValue;
+                if (sfield != null && !TrapEscape.Busy
+                    && TrapEscape.TryEscape(sfield, scell, scy, sh, _goalWx, _goalWy))
+                {
+                    EventLog.W(Ev.Sentinel, $"卡住了先叫 A* ({scell},{scy})H{sh} 而不是直接放弃");
+                    StuckSentinel.Reset();
+                    _haveLast = false;
+                    return;
+                }
+                // A* 还在后台搜的时候别判死。TryEscape 刚开搜也返回 false,和"搜不出来"长得一样
+                if (TrapEscape.Busy) { StuckSentinel.Reset(); return; }
+                EventLog.W(Ev.Sentinel, $"GIVE-UP H平线 放弃这一段 goal=({_goalWx},{_goalWy})");
+                LastStop = "stuck"; Stop();
+                Chatter.Say("[TerraBlind] receding: stuck (sentinel) — abandoning leg");
+                return;
+            }
+            if (StuckSentinel.Nudging) return;
+
+            if (StateSpacePlanner.ExecRunning) return;        // current action still executing
+            if (p.velocity.Y != 0f) return;                   // wait until landed + settled
+
+            // one label function everywhere: same rounding AND same body-fit snap as the planner's landing labels.
+            var cell = StateSpacePlanner.StandCell(p.position.X, p.position.Y);
+            // freshness triggers (see RebuildFieldAsync). Off-field must wait for the swap, no compass here, and
+            // letting StepAlongField run would fake a "walled_in" out of a coverage hole.
+            if (MazeWand.FieldPickStale())
+                RebuildFieldAsync("pick change");
+            if (!MazeWand.GetField(_goalWx, _goalWy).ContainsKey(cell))
+            {
+                if (cell != _offFieldCell) { _offFieldCell = cell; _offFieldTries = 0; }
+                if (++_offFieldTries <= 1)
+                {
+                    RebuildFieldAsync("off-field");
+                    return;
+                }
+                // 建过了还在场外:不再建,放行下去。StepAlongField 会报 EXPAND-EMPTY 然后走安全逃逸步,
+                // 人挪一格就可能回到场里。停在这儿等一张永远不会包含这格的场才是真死锁。
+                EventLog.W(Ev.Fail, $"OFF-FIELD {cell} 重建后仍不在场里 → 交给逃逸步");
+            }
+            else if (cell == _offFieldCell) { _offFieldCell = (int.MinValue, int.MinValue); _offFieldTries = 0; }
+            // 上一条边真落到哪了 → 变成连续的失配权重,软性压低老是落空的边。随后整表衰减:不做黑名单、不禁回头
+            if (_haveLast && _lastFrom.HasValue && _lastTarget.HasValue)
+            {
+                var f = _lastFrom.Value; var t = _lastTarget.Value;
+                int dxc = cell.Item1 - t.Item1, dyc = cell.Item2 - t.Item2;
+                // 带上原始 px/py 和脚下踩的东西:格号是取整后的结论,差一行可能是真没到,也可能只是
+                // 两把尺子读数不同。今天四个误判有三个当场就能证伪。如果日志里有这些原始值。
+                int feetRow = (int)((p.position.Y + p.height) / 16f);
+                var (bl, br) = Predicates.BodyCols(p);
+                string under = "";
+                for (int c = bl; c <= br; c++)
+                    if (Predicates.IsGround(c, feetRow)) under += $"{c}:{Main.tile[c, feetRow].TileType} ";
+                bool hit = StateSpacePlanner.Arrived(t.Item1, t.Item2, cell.Item1, cell.Item2, _lastPillar);
+                // MISS 才带规划落点:差一格是取整的结论,像素差才说明是仿真偏了还是执行飘了。vx 是残余速度
+                // 规划器用【空输入】沉降算落点,执行器走完不刹车,这两个假设不一样就会系统性差一行。
+                string gap = hit || _lastLandPx == 0f ? "" :
+                    $" plan={_lastLandPx:0.#},{_lastLandPy:0.#} d=({p.position.X - _lastLandPx:0.#},{p.position.Y - _lastLandPy:0.#}) vx={p.velocity.X:0.##}";
+                EventLog.W(Ev.Exec, $"({f.Item1},{f.Item2})→({t.Item1},{t.Item2}) actual=({cell.Item1},{cell.Item2}) "
+                    + $"{(hit ? "HIT" : $"MISS d=({dxc},{dyc})")}{(_lastPillar ? " pillar" : "")} "
+                    + $"px={p.position.X:0.#},{p.position.Y:0.#} cols[{bl}..{br}] feet={feetRow} under={(under == "" ? "空" : under.Trim())}{gap}");
+                StateSpacePlanner.ReportEdge(f.Item1, f.Item2, t.Item1, t.Item2, cell.Item1, cell.Item2, _lastPillar);
+            }
+            StateSpacePlanner.DecayMiss();
+
+            // STAND 末段交给 A*:H 场是格子 Dijkstra,不知道悬空格竖直跳不上去,梯度会把人吸到正下方打转
+            // Reach 不走这条:"先变差再变好"主体的 PUSH 已经在做,不需要第二套会搜索的选边逻辑
+            if (_mode == Mode.Stand && System.Math.Abs(cell.Item1 - _goalWx) <= StandSwitch
+                                    && System.Math.Abs(cell.Item2 - _goalWy) <= StandSwitch)
+            {
+                // goalSnapCap:0。目标本来就悬空,一旦被 snap 拉到地面,人会踩着地面报"到了",
+                // 建房整套坐标全错。宁可 fail fast。
+                var ap = StateSpacePlanner.Plan(_goalWx, _goalWy, goalSnapCap: 0);
+                if (ap.Found && ap.Steps.Count > 0)
+                {
+                    DiagLog.Write($"[recede] STAND A* from {cell} → ({_goalWx},{_goalWy}) steps={ap.Steps.Count} exp={ap.Expansions}");
+                    // 往上垫平台/pillar 时人几乎不横移、H 也几乎不降。正好是 sentinel 判"卡死"的特征。
+                    // A* 每次真给出一条路就把它的计时清零,否则爬到一半就被当成卡住放弃。
+                    StuckSentinel.Reset();
+                    _standTries = 0;
+                    _lastFrom = cell; _lastTarget = (_goalWx, _goalWy); _haveLast = true;
+                    _lastPillar = ap.Steps.Count > 0 && ap.Steps[0].Pillar;
+                    _lastLandPx = ap.Steps.Count > 0 ? ap.Steps[0].LandPx : 0f;
+                    _lastLandPy = ap.Steps.Count > 0 ? ap.Steps[0].LandPy : 0f;
+                    StateSpacePlanner.DispatchPlan(ap);
+                    return;
+                }
+                if (ap.Partial && ap.Steps.Count > 0)
+                {
+                    // 搜不到终点但有更近的落脚点。走过去换个角度再搜。人真的动了,不算一次失败。
+                    StuckSentinel.Reset();
+                    _standTries = 0;
+                    _lastFrom = cell; _lastTarget = (ap.GoalWx, ap.GoalWy); _haveLast = true;
+                    _lastPillar = ap.Steps.Count > 0 && ap.Steps[0].Pillar;
+                    _lastLandPx = ap.Steps.Count > 0 ? ap.Steps[0].LandPx : 0f;
+                    _lastLandPy = ap.Steps.Count > 0 ? ap.Steps[0].LandPy : 0f;
+                    StateSpacePlanner.DispatchPlan(ap);
+                    return;
+                }
+                // 一步都给不出来。别退回 greedy。它在这地形上只会打转到 sentinel 报卡死。
+                //
+                // 【同一个位置只算一次尝试】。原来每帧 +1,三帧就烧完。而这三帧人一步没动,
+                // 搜的是同一个局面,结果必然一样,等于只试了一次就判死
+                // (现场:675/676/677 三个连续帧报完 1/3 2/3 3/3,然后 unreachable)。
+                // 人挪过窝才是真的"换个角度再试"。
+                if (_standCell != cell) { _standCell = cell; _standTries = 0; }
+                else { DiagLog.Write($"[recede] STAND A* no plan at {cell} → ({_goalWx},{_goalWy}) exp={ap.Expansions} 原地不动,不计次"); return; }
+                DiagLog.Write($"[recede] STAND A* no plan at {cell} → ({_goalWx},{_goalWy}) exp={ap.Expansions} try={_standTries + 1}/{StandMaxTries}");
+                if (++_standTries >= StandMaxTries)
+                {
+                    LastStop = "unreachable"; Stop();
+                    Chatter.Say("[TerraBlind] receding: can't stand on goal");
+                    return;
+                }
+                return;
+            }
+
+            // 后台 A* 搜完了就在这儿派发(派发必须在主线程)。搜索本身在 Task 里跑,
+            // 这一帧只是取结果。主线程一次展开都不做
+            if (TrapEscape.Poll()) { StuckSentinel.Reset(); _haveLast = false; return; }
+
+            Trap.JustTrapped = false;
+            var res = StateSpacePlanner.StepAlongField(_goalWx, _goalWy);
+            // 贪心当场承认走不动(物理候选没一个降 H)。这是它的理论缺陷,补丁修不好。
+            // 只在这一刻叫 A*,而且只搜"出这个坑"那一小段。别处照旧走贪心,它的好处一条不丢。
+            if (Trap.JustTrapped)
+            {
+                if (StateSpacePlanner.PreserveTerrain)
+                {
+                    LastStop = "no_progress_preserving_terrain";
+                    Stop();
+                    return;
+                }
+                // 【只观测,不接管】。下面那几条既判断又动手(TryEscape 开搜就返回、Unstick 直接派活),
+                // 换成 switch 会把副作用做两遍。先让它跟着跑,对不对看日志
+                Triage.Observe(new StuckScene
+                {
+                    Cx = Trap.JustAt.x, Cy = Trap.JustAt.y,
+                    GoalWx = _goalWx, GoalWy = _goalWy,
+                    CurH = Trap.JustH,
+                    FootBlockCol = Trap.FootBlockCol, FootBlockRow = Trap.FootBlockRow,
+                    TrapEscapeBusy = TrapEscape.Busy,
+                    CommitmentActive = Commitment.Active,
+                    AnyPhysicsEdge = res != null && res.Steps.Count > 0,
+                });
+                var escField = MazeWand.PeekFieldOrNull(_goalWx, _goalWy);
+                if (escField != null
+                    && TrapEscape.TryEscape(escField, Trap.JustAt.x, Trap.JustAt.y, Trap.JustH, _goalWx, _goalWy))
+                {
+                    StuckSentinel.Reset();   // A* 爬平台时 H 不降、横移也少,正是 sentinel 判卡死的特征
+                    _haveLast = false;       // 这一段不是贪心选的边,别拿它去算失配权重
+                    return;
+                }
+                // 【脚下有挖不动的列】排在承诺前面:这是有明确解法的具体障碍(挪一格就行),
+                // 而承诺是"没别的办法了"才用的瞎猜。日志现场:黑曜石卡住后承诺把人往西推 8 格,
+                // 正对着一整片黑曜石,东边一格就能挖。
+                if (Trap.FootBlockCol >= 0 && !Commitment.Active && !TrapEscape.Busy
+                    && Unstick.Handle("digdown", new Blocker(BlockKind.FootColUnmineable,
+                        Trap.FootBlockCol, Trap.FootBlockRow,
+                        $"tile{Main.tile[Trap.FootBlockCol, Trap.FootBlockRow].TileType}挖不动,往下的边发不出来")))
+                { Trap.FootBlockCol = -1; return; }
+                // A* 也出不去 → 退回承诺兜底。res 是贪心这一周期选的边,照常派发。
+                // 【但 A* 还在搜的时候不许建承诺】。TryEscape 刚开搜也返回 false,和"A* 失败"
+                // 长得一样 --- 那几十帧建了承诺,它就把人往别处拽,等结果回来人已经不在原地了。
+                if (!Commitment.Active && !TrapEscape.Busy) Commitment.Begin(Trap.JustAt.x, Trap.JustAt.y, Trap.JustH);
+                // 后台还在搜的这十几秒里 H 不降、位移也小,正是 sentinel 判卡死的特征。
+                // 搜索本身就是"正在想办法",别在这期间把整段导航毙掉
+                if (TrapEscape.Busy) StuckSentinel.Reset();
+            }
+            if (res == null || res.Steps.Count == 0)
+            { DiagLog.Write($"[recede] STOP at {cell}: no physics edge at all (unbreakable seal — a human couldn't pass either)"); LastStop = "walled_in"; Stop(); Chatter.Say("[TerraBlind] receding: walled in"); return; }
+
+            // bestH 只在当前盆地内衡量进度:摔一次能让 H 跳 +500~1300(循环环内才 ≤50),那是换盆地不是打转
+            if (res.CurH < _bestH) _bestH = res.CurH;
+            _ring.Add((cell.Item1, cell.Item2, res.GoalWx, res.GoalWy, res.CurH));
+            if (_ring.Count > RingLen) _ring.RemoveAt(0);
+            _prevCell = cell;
+
+            _altered += res.Altered;
+            if (_altered >= RebuildAltered)
+                RebuildFieldAsync($"altered {_altered} tiles");
+
+            _lastFrom = cell; _lastTarget = (res.GoalWx, res.GoalWy); _haveLast = true;
+            _lastPillar = res.Steps.Count > 0 && res.Steps[0].Pillar;
+            _lastLandPx = res.Steps.Count > 0 ? res.Steps[0].LandPx : 0f;
+            _lastLandPy = res.Steps.Count > 0 ? res.Steps[0].LandPy : 0f;
+            StateSpacePlanner.DispatchPlan(res);
+        }
+    }
+}

@@ -1,0 +1,200 @@
+Items: {
+	NavWand: {
+		DisplayName: Nav Wand
+		Tooltip: ""
+	}
+
+	MazeWand: {
+		DisplayName: Maze Wand
+		Tooltip:
+			'''
+			Left: maze path to target
+			Right: cost-field heatmap (green near goal, red far)
+			'''
+	}
+
+	RecordWand: {
+		DisplayName: Record Wand
+		Tooltip: Right: toggle recording human input
+	}
+}
+
+Keybinds: {
+	ToggleMazeNav.DisplayName: Toggle Maze Nav
+	ToggleRecedingNav.DisplayName: Toggle Receding Nav
+	ShowHellLine.DisplayName: Show Hell Bridge Line
+	PreviewDescent.DisplayName: Preview Descent And Bridge
+	TestPlatDown.DisplayName: Test Platform Descent
+	BuildHellBridge.DisplayName: Build Hell Bridge
+	ShowHouseSite.DisplayName: Show House Site
+	TestBridge.DisplayName: Test Bridge
+	TestRoom.DisplayName: Test Room
+	TestReachWork.DisplayName: Test Reach Work
+	ShowMinima.DisplayName: Show Minima
+	ToggleManual.DisplayName: Toggle Manual Control
+}
+
+Configs: {
+	Config: {
+		DisplayName: TerraBlind
+
+		AiClient: {
+			Label: AI client
+			Tooltip: Enable only on the separate AI client. Takes effect immediately. Disabling stops tasks and removes multiplayer binding.
+		}
+
+		Headers: {
+			Agent: 内置 Agent
+			Assist: Assists
+			Debug: Debug
+			Nav: Navigation
+		}
+
+		AgentEnabled: {
+			Label: 启用内置 Agent
+			Tooltip: 使用 /tb 下达指令，无需 Python。关闭后恢复外部脚本入口。
+		}
+
+		AgentUseCodex: {
+			Label: 使用 Codex 后端
+			Tooltip: 自动启动本机 Codex，使用其现有登录和游戏工具。关闭后使用下方的 API 配置。无需重载。
+		}
+
+		AgentCodexPath: {
+			Label: Codex 可执行文件路径
+			Tooltip: 留空自动寻找本机 Codex。找不到时填写可执行文件完整路径。需要先在终端执行 codex login。
+		}
+
+		AgentCodexModel: {
+			Label: Codex 模型名
+			Tooltip: 留空沿用本机 Codex 默认模型。此项与下方 API 模型名分开。
+		}
+
+		AgentApiKey: {
+			Label: Agent API Key
+			Tooltip: 保存在本机 ModConfigs，不会同步给其他玩家。用于通用 Agent，与 Jev 的 TypeSafe Key 分开。
+		}
+
+		AgentBaseUrl: {
+			Label: Agent Base URL
+			Tooltip: OpenAI 兼容接口的 API 根地址，例如 https://api.openai.com/v1。也可填写完整的 /chat/completions 地址。
+		}
+
+		AgentModel: {
+			Label: Agent 模型名
+			Tooltip: 填写服务商提供的模型 ID，模型必须支持 Chat Completions 工具调用。
+		}
+
+		AgentPersona: {
+			Label: 回复语言风格
+			Tooltip: 只描述你希望角色怎样说话，任务执行规则由内置提示词提供。
+		}
+
+		FreezeLavaUnderFeet: {
+			Label: Freeze lava underfoot
+			Tooltip: Turns the lava surface you are about to land on into a block, spending one from your inventory. Off by default, since it changes your world without being asked.
+		}
+
+		AlwaysGillsAndShine: {
+			Label: Always Gills and Shine
+			Tooltip: Keeps the Gills and Shine buffs refreshed every frame, so the run does not drown or walk blind.
+		}
+
+		ShowOverlay: {
+			Label: Show debug overlay
+			Tooltip: Draws the bridge line, house box and treasure markers over the world. Turn it off before recording.
+		}
+
+		ShowPlannerTrails: {
+			Label: Show planner trails
+			Tooltip: Also draws the A* search dots and jump arcs. Dense enough to hide the terrain underneath.
+		}
+
+		AvoidDanger: {
+			Label: Avoid danger when picking a step
+			Tooltip: Prices fall damage and nearby enemies into the choice of the next move, so the route bends around drops and mobs. Off by default, since it changes long-tuned pathfinding.
+		}
+
+		FightBack: {
+			Label: Fight back
+			Tooltip: Swings at the nearest enemy that is close and not behind blocks. Shares the use-item control with placing and mining, so it waits rather than interrupting work in progress.
+		}
+
+		DodgeBoss: {
+			Label: Dodge Boss
+			Tooltip: ""
+		}
+
+		ShowJevHud: {
+			Label: Show Jev Hud
+			Tooltip: ""
+		}
+
+		BossKnowledge: {
+			Label: Boss Knowledge
+			Tooltip: ""
+		}
+
+		BossPlaybook: {
+			Label: Boss playbook overrides
+			Tooltip:
+				'''
+				One entry per boss, filled in for you with the text the mod ships. Edit How It Fights to change what Jev is told, without rebuilding the mod.
+				Uncheck Enabled, or clear the text, to fight that one boss with no playbook at all. Deleting an entry just restores the built-in text on the next load.
+				'''
+		}
+
+		TypeSafeKey: {
+			Label: TypeSafe API key
+			Tooltip:
+				'''
+				Key for the Jev calls that drive boss fighting. Paste it here once and it is copied to the .env file in the mod source folder, which git and the mod build both skip.
+				Then clear this box: whatever stays here is also kept in plain text in ModConfigs/TerraBlind.json, so do not share that file.
+				'''
+		}
+
+		AimAhead: {
+			Label: Aim Ahead
+			Tooltip: ""
+		}
+
+		RandomBrain: {
+			Label: Random Brain (control group)
+			Tooltip: Replace Jev's movement intent with a random pick every 300ms. The reflex layer stays the same, so the difference is what Jev is worth.
+		}
+
+		AgentAutoPlay: {
+			Label: Agent Auto Play
+			Tooltip: ""
+		}
+
+		DodgeUseDeepSeek: {
+			Label: Dodge Use Deep Seek
+			Tooltip: ""
+		}
+
+		HideAimCursor: {
+			Tooltip: ""
+			Label: Hide Aim Cursor
+		}
+	}
+
+	BossOverride: {
+		Tooltip: ""
+
+		Boss: {
+			Label: Boss
+			Tooltip: ""
+		}
+
+		Enabled: {
+			Label: Enabled
+			Tooltip: ""
+		}
+
+		HowItFights: {
+			Label: How It Fights
+			Tooltip: ""
+		}
+	}
+}

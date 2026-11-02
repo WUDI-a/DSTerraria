@@ -887,18 +887,6 @@
   {
     "type": "function",
     "function": {
-      "name": "organize_hotbar",
-      "description": "自动整理快捷栏(纯代码按数值择优,不用你判断哪个好):星怒放 slot 2(数字键3),镐力最高的镐放 slot 3(数字键4),其余伤害最高的武器按强弱依次放 slot 4/5/6(数字键5/6/7)。刚捡到/合成出更好的武器或镐子时调一次。",
-      "parameters": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      }
-    }
-  },
-  {
-    "type": "function",
-    "function": {
       "name": "store_inventory",
       "description": "一键把背包存进【当前已打开的箱子】(调原版一键存入,只存背包10-49,不动快捷栏0-9)。自动保留银矿/金矿/铂金矿及更高级矿石、星标物品(它们会被先存再捞回背包)。先 interact 打开箱子再调。背包满要腾空间时用它。",
       "parameters": {
@@ -931,7 +919,7 @@
     "type": "function",
     "function": {
       "name": "switch_item",
-      "description": "切到指定武器/物品所在栏位,并把它记为'常用武器'(后续 organize_hotbar 会优先把它放武器区第一格)。玩家要求'用 X 武器'时用它。给 name(中文名/英文名)或 slot 都行;武器不在快捷栏会自动换到快捷栏空位再选。",
+      "description": "切到指定武器所在栏位并选中,记为'常用武器'。给 name(中文/英文名)或 slot 都行。武器不在快捷栏时:优先换进快捷栏空位;没有空位就【把快捷栏里的非武器物品(镐/斧/锤/方块/杂物)换下来】挤回背包,武器上去,不丢东西。玩家要求'用 X 武器'时用它。",
       "parameters": {
         "type": "object",
         "properties": {
@@ -945,33 +933,6 @@
           }
         },
         "required": []
-      }
-    }
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "hotbar_place",
-      "description": "把指定物品放到指定快捷栏格(0-9)。玩家说'把X放到N号位'/'X放第一个格子'这类【指定格】要求一律用这个,别用 organize_hotbar(那是固定布局:星怒2/镐3/武器456)也不用 inventory_swap(那个要抄 expected 值,容易 stale)。给 item(物品名,中英文都行)或 src(背包槽号),给 slot(目标格0-9)。目标格原有物品会与物品原位置对调(原位置是背包格,被顶出来的就进背包)。放完自动选中该格并暂停自动战斗几秒,布局稳得住。返回 before/after 对比。",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "item": {
-            "type": "string",
-            "description": "物品名,中文名/英文名都行,如 '星怒' 或 'Starfury'"
-          },
-          "src": {
-            "type": "integer",
-            "description": "物品所在背包槽位(0-49),可代替 item"
-          },
-          "slot": {
-            "type": "integer",
-            "description": "目标快捷栏格,0-9(0=一号位)"
-          }
-        },
-        "required": [
-          "slot"
-        ]
       }
     }
   }

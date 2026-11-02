@@ -334,16 +334,10 @@ public static class AgentTools
                     await NativeAgent.OnMain(() => { CombatPause.ForSeconds(3f); return true; }, token);
                 break;
             case "hotbar_place":
-                // 把指定物品放到指定快捷栏格。同 swap:先停 NPC 战斗 → 等挥舞结束 → 主线程执行 → 再稳几秒。
-                // 调用方(PvpInventory.PlaceInHotbar)按名字现查源槽,不需要 expected_* 那套防呆参数
-                await NativeAgent.OnMain(() => { CombatPause.ForSeconds(5f); return true; }, token);
-                var placeClock = Stopwatch.StartNew();
-                while (placeClock.Elapsed.TotalSeconds < 2 && !await NativeAgent.OnMain(() => Main.LocalPlayer.dead
-                    || Main.LocalPlayer.itemAnimation == 0 && Main.LocalPlayer.itemTime == 0, token))
-                    await Task.Delay(50, token);
-                result = await NativeAgent.OnMain(() => PvpInventory.PlaceInHotbar(args), token);
-                if (result["error"] == null)
-                    await NativeAgent.OnMain(() => { CombatPause.ForSeconds(3f); return true; }, token);
+            case "organize_hotbar":
+                // 已弃用:不再暴露给 AI。切武器统一走 switch_item(会自动换下快捷栏里的非武器)
+                result = new JsonObject { ["error"] = "deprecated",
+                    ["detail"] = "这个工具已弃用。放东西用 move_item,切武器用 switch_item。" };
                 break;
             case "combat_observe":
                 result = new JsonObject { ["error"] = "polling_disabled",
@@ -444,9 +438,6 @@ public static class AgentTools
                 break;
             case "equip_item":
                 result = await Call("/equip_item", args, token);
-                break;
-            case "organize_hotbar":
-                result = await Call("/organize_hotbar", null, token);
                 break;
             case "switch_item":
                 result = await Call("/switch_item", args, token);

@@ -4031,7 +4031,9 @@ namespace DSTerraria
 		// 单次会话内存态,不写配置
 		public static int CommonWeaponType = -1;
 
-		// 切到指定武器/物品所在槽,并记为常用武器。参数 slot 或 name 已在上层解析好
+		// 切到指定武器/物品所在槽,并记为常用武器。参数 slot 或 name 已在上层解析好。
+		// 武器在背包(10-49)时:先找快捷栏空位;没空位就把快捷栏里的【非武器】物品换下来(挤到背包原位置),
+		// 保证武器上得了快捷栏。非武器物品换下后回背包,不丢东西
 		static string SwitchItem(int slot)
 		{
 			var p = Main.LocalPlayer;
@@ -4042,24 +4044,32 @@ namespace DSTerraria
 			if (it == null || it.IsAir)
 				return "{\"ok\":false,\"error\":\"empty_slot\",\"slot\":" + slot + "}";
 
-			// 切到该槽(0-9 直接选,10+ 先换进快捷栏第一个空位再选)
+			bool IsWeapon(Item x) => x != null && !x.IsAir && x.damage > 0
+				&& x.pick == 0 && x.axe == 0 && x.hammer == 0;
+
+			// 切到该槽(0-9 直接选,10+ 换进快捷栏)
 			int hotbar = slot;
 			if (slot >= 10)
 			{
-				// 武器不在快捷栏:换到第一个空位(优先 4,退而求其次扫 0-9)
+				// 1) 先找快捷栏空位(优先 4 号武器区)
 				int target = -1;
 				if (p.inventory[4] == null || p.inventory[4].IsAir) target = 4;
 				else for (int h = 0; h < 10; h++)
 						if (p.inventory[h] == null || p.inventory[h].IsAir) { target = h; break; }
+				// 2) 没空位 → 找快捷栏里的非武器物品(镐/斧/锤/杂物/方块都算),把它换下来
 				if (target < 0)
-					return "{\"ok\":false,\"error\":\"hotbar_full\",\"hint\":\"快捷栏满了,先整理或腾一格\"}";
+					for (int h = 0; h < 10; h++)
+						if (!IsWeapon(p.inventory[h])) { target = h; break; }
+				if (target < 0)
+					return "{\"ok\":false,\"error\":\"hotbar_full\",\"hint\":\"快捷栏全是武器,没位置也换不动\"}";
+				// 武器换进快捷栏 target,原来那格(非武器)换回背包 slot
 				(p.inventory[slot], p.inventory[target]) = (p.inventory[target], p.inventory[slot]);
 				hotbar = target;
 			}
 			p.selectedItem = hotbar;
 
 			// 记为常用武器(是武器才记;镐/斧/锤不算"武器")
-			if (it.damage > 0 && it.pick == 0 && it.axe == 0 && it.hammer == 0)
+			if (IsWeapon(it))
 				CommonWeaponType = it.type;
 
 			return "{\"ok\":true,\"slot\":" + hotbar + ",\"name\":\"" + JsonEsc(it.Name ?? "")

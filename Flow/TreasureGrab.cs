@@ -243,17 +243,38 @@ namespace DSTerraria
 
 		static int _digFrames;
 
-		// 掏空后转挖箱子:先关箱,再对锚点格用镐挖(ItemUseCoordinator 自动选镐)
+		// 掏空后转挖箱子:先关箱,再对锚点格用镐挖。
+		// 注意 ItemUseCoordinator 的 Slot=-1 是"自动选斧"(砍树),不是镐,得自己找镐
 		static void StartDig()
 		{
 			CloseChest();
 			_digFrames = 0;
-			DiagLog.Write($"[grab] 掏空了,开始挖箱子 ({_ax},{_ay})");
+			int pickSlot = FindPickaxe();
+			if (pickSlot < 0)
+			{
+				Done("掏空了,但没有镐挖箱子");
+				return;
+			}
+			DiagLog.Write($"[grab] 掏空了,开始挖箱子 ({_ax},{_ay}) 用镐 slot={pickSlot}");
 			ItemUseCoordinator.Start(new ItemUseRequest
 			{
-				TargetWx = _ax, TargetWy = _ay, Slot = -1, DurationTicks = 0, Strict = true
+				TargetWx = _ax, TargetWy = _ay, Slot = pickSlot, DurationTicks = 0, Strict = true
 			});
 			_ph = Ph.Dig;
+		}
+
+		// 快捷栏(0-9)里找镐力最高的镐
+		static int FindPickaxe()
+		{
+			var p = Main.LocalPlayer;
+			if (p == null) return -1;
+			int best = -1, bestPow = 0;
+			for (int i = 0; i < 10; i++)
+			{
+				var it = p.inventory[i];
+				if (it != null && !it.IsAir && it.pick > bestPow) { bestPow = it.pick; best = i; }
+			}
+			return best;
 		}
 
 		const int LootRoom = 8;   // 掏之前腾几格。箱子 40 格但大多是零头,腾太多等于白删建材

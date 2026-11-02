@@ -141,7 +141,7 @@
     "type": "function",
     "function": {
       "name": "get_state",
-      "description": "获取当前游戏状态快照:自己血量/位置(像素,除以16得到格坐标)/背包装备，以及 other_players 的编号/名字/位置/血量/PvP/队伍。agent.instruction_player_id 是发指令的绑定玩家编号，agent.player_id 是自己。",
+      "description": "获取当前游戏状态快照:自己血量/位置(像素,除以16得到格坐标);inventory_slots 是背包 0-49 每格物品(快捷栏 0-9、背包 10-49,含 type/prefix/stack/name/slot);armor_slots 是身上穿的装备饰品(part=head/body/legs/acc1-7,带 defense 和 damage),空数组表示光着;open_chest 是当前打开箱子的内容。以及 other_players 的编号/名字/位置/血量/PvP/队伍。agent.instruction_player_id 是发指令的绑定玩家编号,agent.player_id 是自己。",
       "parameters": {
         "type": "object",
         "properties": {}
@@ -888,7 +888,7 @@
     "type": "function",
     "function": {
       "name": "organize_hotbar",
-      "description": "自动整理快捷栏(纯代码按数值择优,不用你判断哪个好):镐力最高的镐放到 slot 2(数字键3),伤害最高的前 3 把武器按强弱依次放到 slot 3/4/5(数字键4/5/6),方便切换不同武器。刚捡到/合成出更好的镐子或武器时调一次,保证最好用的在最顺手的位置。",
+      "description": "自动整理快捷栏(纯代码按数值择优,不用你判断哪个好):星怒放 slot 2(数字键3),镐力最高的镐放 slot 3(数字键4),其余伤害最高的武器按强弱依次放 slot 4/5/6(数字键5/6/7)。刚捡到/合成出更好的武器或镐子时调一次。",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -923,6 +923,54 @@
         },
         "required": [
           "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "switch_item",
+      "description": "切到指定武器/物品所在栏位,并把它记为'常用武器'(后续 organize_hotbar 会优先把它放武器区第一格)。玩家要求'用 X 武器'时用它。给 name(中文名/英文名)或 slot 都行;武器不在快捷栏会自动换到快捷栏空位再选。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "武器名,可代替 slot"
+          },
+          "slot": {
+            "type": "integer",
+            "description": "物品所在背包槽位(0-49)"
+          }
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "hotbar_place",
+      "description": "把指定物品放到指定快捷栏格(0-9)。玩家说'把X放到N号位'/'X放第一个格子'这类【指定格】要求一律用这个,别用 organize_hotbar(那是固定布局:星怒2/镐3/武器456)也不用 inventory_swap(那个要抄 expected 值,容易 stale)。给 item(物品名,中英文都行)或 src(背包槽号),给 slot(目标格0-9)。目标格原有物品会与物品原位置对调(原位置是背包格,被顶出来的就进背包)。放完自动选中该格并暂停自动战斗几秒,布局稳得住。返回 before/after 对比。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string",
+            "description": "物品名,中文名/英文名都行,如 '星怒' 或 'Starfury'"
+          },
+          "src": {
+            "type": "integer",
+            "description": "物品所在背包槽位(0-49),可代替 item"
+          },
+          "slot": {
+            "type": "integer",
+            "description": "目标快捷栏格,0-9(0=一号位)"
+          }
+        },
+        "required": [
+          "slot"
         ]
       }
     }

@@ -193,6 +193,9 @@ namespace DSTerraria
 		public static void Tick()
 		{
 			AimTarget = null;
+			// 换装窗口:agent 在换快捷栏槽位。这会儿别抢 selectedItem/controlUseItem,
+			// 否则刚摆好的布局和选中格下一帧就被改回去(玩家看着就是"放不住")。Release 是幂等的
+			if (CombatPause.Active) { Release(); return; }
 			if (!Enabled || !AgentPermissions.Attack) { Release(); return; }
 			var p = Main.LocalPlayer;
 			if (p == null || !p.active || p.dead || Manual.On) { Release(); return; }

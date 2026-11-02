@@ -1,0 +1,192 @@
+Mods: {
+	DSTerraria: {
+		Keybinds: {
+			ToggleMazeNav.DisplayName: Toggle Maze Nav
+			ToggleRecedingNav.DisplayName: Toggle Receding Nav
+			ShowHellLine.DisplayName: Show Hell Line
+			PreviewDescent.DisplayName: Preview Descent
+			ShowHouseSite.DisplayName: Show House Site
+			TestBridge.DisplayName: Test Bridge
+			TestRoom.DisplayName: Test Room
+			TestPlatDown.DisplayName: Test Plat Down
+			BuildHellBridge.DisplayName: Build Hell Bridge
+			TestReachWork.DisplayName: Test Reach Work
+			ShowMinima.DisplayName: Show Minima
+			ToggleManual.DisplayName: Toggle Manual
+		}
+
+		Items: {
+			MazeWand: {
+				DisplayName: Maze Wand
+				Tooltip: ""
+			}
+
+			NavWand: {
+				DisplayName: Nav Wand
+				Tooltip: ""
+			}
+
+			RecordWand: {
+				DisplayName: Record Wand
+				Tooltip: ""
+			}
+		}
+
+		Configs: {
+			Config: {
+				DisplayName: Config
+
+				AiClient: {
+					Label: Ai Client
+					Tooltip: ""
+				}
+
+				Headers: {
+					Agent: Agent Header
+					Assist: Assist Header
+					Nav: Nav Header
+					Debug: Debug Header
+				}
+
+				AgentEnabled: {
+					Label: Agent Enabled
+					Tooltip: ""
+				}
+
+				AgentUseCodex: {
+					Label: Agent Use Codex
+					Tooltip: ""
+				}
+
+				AgentCodexPath: {
+					Label: Agent Codex Path
+					Tooltip: ""
+				}
+
+				AgentCodexModel: {
+					Label: Agent Codex Model
+					Tooltip: ""
+				}
+
+				AgentApiKey: {
+					Label: Agent Api Key
+					Tooltip: ""
+				}
+
+				AgentBaseUrl: {
+					Label: Agent Base Url
+					Tooltip: ""
+				}
+
+				AgentModel: {
+					Label: Agent Model
+					Tooltip: ""
+				}
+
+				AgentPersona: {
+					Label: Agent Persona
+					Tooltip: ""
+				}
+
+				AgentAutoPlay: {
+					Label: Agent Auto Play
+					Tooltip: ""
+				}
+
+				FreezeLavaUnderFeet: {
+					Label: Freeze Lava Under Feet
+					Tooltip: ""
+				}
+
+				AlwaysGillsAndShine: {
+					Label: Always Gills And Shine
+					Tooltip: ""
+				}
+
+				AvoidDanger: {
+					Label: Avoid Danger
+					Tooltip: ""
+				}
+
+				FightBack: {
+					Label: Fight Back
+					Tooltip: ""
+				}
+
+				DodgeBoss: {
+					Label: Dodge Boss
+					Tooltip: ""
+				}
+
+				AimAhead: {
+					Label: Aim Ahead
+					Tooltip: ""
+				}
+
+				RandomBrain: {
+					Label: Random Brain
+					Tooltip: ""
+				}
+
+				BossKnowledge: {
+					Label: Boss Knowledge
+					Tooltip: ""
+				}
+
+				DodgeUseDeepSeek: {
+					Label: Dodge Use Deep Seek
+					Tooltip: ""
+				}
+
+				BossPlaybook: {
+					Label: Boss Playbook
+					Tooltip: ""
+				}
+
+				TypeSafeKey: {
+					Label: Type Safe Key
+					Tooltip: ""
+				}
+
+				ShowOverlay: {
+					Label: Show Overlay
+					Tooltip: ""
+				}
+
+				ShowJevHud: {
+					Label: Show Jev Hud
+					Tooltip: ""
+				}
+
+				HideAimCursor: {
+					Label: Hide Aim Cursor
+					Tooltip: ""
+				}
+
+				ShowPlannerTrails: {
+					Label: Show Planner Trails
+					Tooltip: ""
+				}
+			}
+
+			BossOverride: {
+				Tooltip: ""
+
+				Boss: {
+					Label: Boss
+					Tooltip: ""
+				}
+
+				Enabled: {
+					Label: Enabled
+					Tooltip: ""
+				}
+
+				HowItFights: {
+					Label: How It Fights
+					Tooltip: ""
+				}
+			}
+		}
+	}
+}

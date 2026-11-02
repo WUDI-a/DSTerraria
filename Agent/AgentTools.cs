@@ -72,10 +72,36 @@ public static class AgentTools
         state["other_players"] = players;
         state["combat"] = PvpDuel.Report();
         state["inventory_slots"] = PvpInventory.Snapshot();
+        // 身上穿的装备/饰品(护甲栏)。/start 和每次 get_state 都带,模型才知道自己穿没穿、缺什么
+        state["armor_slots"] = ArmorSnapshot();
         // 当前打开的箱子内容,供 move_item 用(没开箱就是空)
         state["open_chest"] = OpenChestSnapshot();
         return state.ToJsonString();
     }, token);
+
+    // 身上穿的装备:armor[0]=头 1=身 2=腿 3-9=饰品 10-12=时装 13-19=时装饰品。
+    // 只列非空的,每件带 part 标明是哪个部位
+    static JsonArray ArmorSnapshot()
+    {
+        var slots = new JsonArray();
+        var p = Main.LocalPlayer;
+        if (p == null || p.armor == null) return slots;
+        string[] part = { "head", "body", "legs", "acc1", "acc2", "acc3", "acc4", "acc5", "acc6", "acc7",
+            "vanity_head", "vanity_body", "vanity_legs", "vanity_acc1", "vanity_acc2", "vanity_acc3",
+            "vanity_acc4", "vanity_acc5", "vanity_acc6", "vanity_acc7" };
+        for (int i = 0; i < p.armor.Length && i < part.Length; i++)
+        {
+            var it = p.armor[i];
+            if (it == null || it.IsAir) continue;
+            slots.Add(new JsonObject
+            {
+                ["slot"] = i, ["part"] = part[i], ["type"] = it.type,
+                ["name"] = it.Name, ["prefix"] = it.prefix, ["stack"] = it.stack,
+                ["defense"] = it.defense, ["damage"] = it.damage
+            });
+        }
+        return slots;
+    }
 
     // 当前打开的箱子(0-39 槽)内容。没开箱返回空数组
     static JsonArray OpenChestSnapshot()
@@ -232,7 +258,7 @@ public static class AgentTools
                 ["state_after_respawn"] = JsonNode.Parse(await State(token)) }.ToJsonString();
         }
         bool external = name is "nav_to" or "mine" or "mine_vein" or "chop_wood" or "use_item"
-            or "place_at" or "act" or "interact" or "loot_all" or "craft" or "inventory_swap" or "combat_reposition";
+            or "place_at" or "act" or "interact" or "loot_all" or "craft" or "inventory_swap" or "hotbar_place" or "combat_reposition";
         long lease = external ? await NativeAgent.OnMain(() => PvpDuel.BeginAction(name), token) : 0;
         try
         {
@@ -295,11 +321,29 @@ public static class AgentTools
                         destination["before_y"].GetValue<float>())), token);
                 break;
             case "inventory_swap":
+                // 【先停 NPC 战斗再等挥舞结束】。战斗每帧重写 selectedItem + controlUseItem,
+                // 不停的话 itemAnimation 几乎永远不归零(等不到空闲帧),换完的布局下一帧也被改掉。
+                // 窗口给 5 秒:等待(≤2s) + 操作 + 收尾;成功后再续 3 秒,选中状态和布局至少稳几秒
+                await NativeAgent.OnMain(() => { CombatPause.ForSeconds(5f); return true; }, token);
                 var idleClock = Stopwatch.StartNew();
                 while (idleClock.Elapsed.TotalSeconds < 2 && !await NativeAgent.OnMain(() => Main.LocalPlayer.dead
                     || Main.LocalPlayer.itemAnimation == 0 && Main.LocalPlayer.itemTime == 0, token))
                     await Task.Delay(50, token);
                 result = await NativeAgent.OnMain(() => PvpInventory.Swap(args), token);
+                if (result["error"] == null)
+                    await NativeAgent.OnMain(() => { CombatPause.ForSeconds(3f); return true; }, token);
+                break;
+            case "hotbar_place":
+                // 把指定物品放到指定快捷栏格。同 swap:先停 NPC 战斗 → 等挥舞结束 → 主线程执行 → 再稳几秒。
+                // 调用方(PvpInventory.PlaceInHotbar)按名字现查源槽,不需要 expected_* 那套防呆参数
+                await NativeAgent.OnMain(() => { CombatPause.ForSeconds(5f); return true; }, token);
+                var placeClock = Stopwatch.StartNew();
+                while (placeClock.Elapsed.TotalSeconds < 2 && !await NativeAgent.OnMain(() => Main.LocalPlayer.dead
+                    || Main.LocalPlayer.itemAnimation == 0 && Main.LocalPlayer.itemTime == 0, token))
+                    await Task.Delay(50, token);
+                result = await NativeAgent.OnMain(() => PvpInventory.PlaceInHotbar(args), token);
+                if (result["error"] == null)
+                    await NativeAgent.OnMain(() => { CombatPause.ForSeconds(3f); return true; }, token);
                 break;
             case "combat_observe":
                 result = new JsonObject { ["error"] = "polling_disabled",
@@ -403,6 +447,9 @@ public static class AgentTools
                 break;
             case "organize_hotbar":
                 result = await Call("/organize_hotbar", null, token);
+                break;
+            case "switch_item":
+                result = await Call("/switch_item", args, token);
                 break;
             case "store_inventory":
                 result = await Call("/store_inventory", null, token);

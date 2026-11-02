@@ -28,6 +28,9 @@ namespace DSTerraria
 
         public static void Tick(Player p)
         {
+            // 换装窗口:agent 在换快捷栏槽位,这会儿别抓 selectedItem/controlUseItem。
+            // 只跳过本帧不动 _framesLeft,fight 工具的剩余时长窗口暂停结束后接着用
+            if (CombatPause.Active) return;
             if (!_active || _framesLeft <= 0)
             {
                 _active = false;

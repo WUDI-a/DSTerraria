@@ -42,12 +42,13 @@ namespace Terraria
         public bool HasAmmo(Item item) => HasAmmunition;
         public int GetWeaponDamage(Item item) => item.damage;
         public Item[] inventory = Enumerable.Range(0, 58).Select(_ => new Item()).ToArray();
+        public Item[] armor = Enumerable.Range(0, 20).Select(_ => new Item()).ToArray();
         public int chest = -1;
     }
     public class Item
     {
         public string Name = "";
-        public int stack, pick, axe, hammer, ammo, damage, useStyle;
+        public int stack, pick, axe, hammer, ammo, damage, useStyle, defense;
         public int type, prefix, useAmmo;
         public float shootSpeed;
         public int shoot, mana, width = 30, height = 30;
@@ -102,6 +103,15 @@ namespace Terraria.ID
         public const int Silver = 9, Tungsten = 168, Gold = 8, Platinum = 169, Meteorite = 37, Demonite = 22,
             Crimtane = 204, Hellstone = 58, Cobalt = 107, Palladium = 221, Mythril = 108, Orichalcum = 222,
             Adamantite = 111, Titanium = 223, Chlorophyte = 211, LunarOre = 408; }
+    public static class ItemID
+    {
+        public const int Starfury = 65;
+        public static class Search
+        {
+            public static bool ContainsName(string s) => false;
+            public static int GetId(string s) => -1;
+        }
+    }
     public static class ContentSamples { public static Dictionary<int, Terraria.Projectile> ProjectilesByType = new(); }
 }
 namespace Terraria.ModLoader
@@ -163,6 +173,7 @@ namespace DSTerraria
     }
     public static class DiagLog { public static void Write(string text) { } }
     public static class ItemUseCoordinator { public static bool IsActive; }
+    public static class CombatPause { public static bool Active; public static void ForSeconds(float s) { } }
     public static class PlaceAnywhere { public static bool IsRunning; }
     public static class StateSpacePlanner { public static bool PreserveTerrain; }
     public sealed class GameWoodHarvest : IWoodHarvestWorld
@@ -228,6 +239,7 @@ namespace DSTerraria
     {
         public static object PendingControl, LatestSnapshot;
         public static string LastInteract = "done";
+        public static int CommonWeaponType = -1;
         public static readonly List<string> Calls = new();
         public static Func<string, string, (int, string)> Handler = (_, _) => (200, "{}");
         public static (int Status, string Body) Dispatch(string path, string payload)

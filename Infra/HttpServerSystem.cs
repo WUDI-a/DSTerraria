@@ -644,9 +644,49 @@ namespace DSTerraria
 			}
 			else if (path == "/organize_hotbar")
 			{
-				// 自动整理快捷栏:镐力最高的镐放 2 号位,伤害最高的武器放 0 号位,
-				// 斧/锤/火把各自归位。纯代码按数值择优,不用模型判断
+				// 自动整理快捷栏:星怒放 2,镐放 3,其余武器按伤害放 4/5/6(常用武器优先)
 				body = OrganizeHotbar();
+			}
+			else if (path == "/switch_item")
+			{
+				// 切到指定武器/物品所在栏位,并把它记为"常用武器"。入参 {name:"..."} 或 {slot:N}
+				// 切完开 3 秒换装窗口,不然战斗下一帧就把 selectedItem 改回它挑的武器
+				CombatPause.ForSeconds(3f);
+				string rb = payload.Replace(" ", "");
+				var slotM = System.Text.RegularExpressions.Regex.Match(rb, "\"slot\"\\s*:\\s*(-?\\d+)");
+				var nameM = System.Text.RegularExpressions.Regex.Match(payload, "\"name\"\\s*:\\s*\"([^\"]+)\"");
+				int slot = slotM.Success ? int.Parse(slotM.Groups[1].Value) : -1;
+				if (slot < 0 && nameM.Success)
+				{
+					string want = nameM.Groups[1].Value;
+					var p0 = Main.LocalPlayer;
+					if (p0 != null)
+						for (int i = 0; i < 50 && i < p0.inventory.Length; i++)
+						{
+							var it = p0.inventory[i];
+							if (it == null || it.IsAir) continue;
+							if ((it.Name ?? "") == want
+								|| (Terraria.ID.ItemID.Search.ContainsName(want)
+									&& Terraria.ID.ItemID.Search.GetId(want) == it.type))
+							{ slot = i; break; }
+						}
+				}
+				body = SwitchItem(slot);
+			}
+			else if (path == "/hotbar_place")
+			{
+				// 把指定物品放进指定快捷栏格。入参 {name:"..."} 或 {src:N} + {slot:M(0-9)}。
+				// 目标格原有物品与源位置对调;放完选中该格。同 /switch_item 开换装窗口稳住布局
+				CombatPause.ForSeconds(3f);
+				string rb = payload.Replace(" ", "");
+				var slotM = System.Text.RegularExpressions.Regex.Match(rb, "\"slot\"\\s*:\\s*(-?\\d+)");
+				var nameM = System.Text.RegularExpressions.Regex.Match(payload, "\"name\"\\s*:\\s*\"([^\"]+)\"");
+				var srcM = System.Text.RegularExpressions.Regex.Match(rb, "\"src\"\\s*:\\s*(-?\\d+)");
+				var ja = new System.Text.Json.Nodes.JsonObject();
+				if (slotM.Success) ja["slot"] = int.Parse(slotM.Groups[1].Value);
+				if (nameM.Success) ja["name"] = nameM.Groups[1].Value;
+				if (srcM.Success) ja["src"] = int.Parse(srcM.Groups[1].Value);
+				body = PvpInventory.PlaceInHotbar(ja).ToJsonString();
 			}
 			else if (path == "/store_inventory")
 			{
@@ -3934,6 +3974,9 @@ namespace DSTerraria
 			if (srcSlot < 0 || srcSlot >= fromLen) return "{\"ok\":false,\"error\":\"bad_src_slot\"}";
 			var item = from[srcSlot];
 			if (item == null || item.IsAir) return "{\"ok\":false,\"error\":\"empty_src\",\"src_slot\":" + srcSlot + "}";
+			// 星标(favorited)物品是玩家收藏的,不许搬进箱子
+			if (dst == "chest" && item.favorited)
+				return "{\"ok\":false,\"error\":\"favorited\",\"hint\":\"这是星标物品,玩家收藏了,别搬进箱子\"}";
 
 			int move = count < 0 || count > item.stack ? item.stack : count;
 			int moved = 0;
@@ -3982,62 +4025,125 @@ namespace DSTerraria
 				+ "\",\"name\":\"" + JsonEsc(Lang.GetItemNameValue(item.type)) + "\",\"left\":" + item.stack + "}";
 		}
 
-		// 自动整理快捷栏。原则:镐力最高的镐 → slot 2(数字键 3);伤害最高的纯武器 → slot 0;
-		// 最好的斧 → 空位、锤 → 空位。都是"换到目标格",不删东西。
-		// 只在背包(0-49)范围内挑,拿数值比,不靠名字
+		// 自动整理快捷栏。原则:星怒 → slot 2(数字键 3);镐力最高的镐 → slot 3(数字键 4);
+		// 其余纯武器按伤害降序 → 4/5/6 号位。都是"换到目标格",不删东西
+		// 常用武器(玩家/模型点过名要用的那把)。记 type,organize_hotbar 优先把它放武器区第一格。
+		// 单次会话内存态,不写配置
+		public static int CommonWeaponType = -1;
+
+		// 切到指定武器/物品所在槽,并记为常用武器。参数 slot 或 name 已在上层解析好
+		static string SwitchItem(int slot)
+		{
+			var p = Main.LocalPlayer;
+			if (p == null) return "{\"ok\":false,\"error\":\"no_player\"}";
+			if (slot < 0 || slot >= 50 || slot >= p.inventory.Length)
+				return "{\"ok\":false,\"error\":\"not_found\",\"hint\":\"背包里没找到这个武器\"}";
+			var it = p.inventory[slot];
+			if (it == null || it.IsAir)
+				return "{\"ok\":false,\"error\":\"empty_slot\",\"slot\":" + slot + "}";
+
+			// 切到该槽(0-9 直接选,10+ 先换进快捷栏第一个空位再选)
+			int hotbar = slot;
+			if (slot >= 10)
+			{
+				// 武器不在快捷栏:换到第一个空位(优先 4,退而求其次扫 0-9)
+				int target = -1;
+				if (p.inventory[4] == null || p.inventory[4].IsAir) target = 4;
+				else for (int h = 0; h < 10; h++)
+						if (p.inventory[h] == null || p.inventory[h].IsAir) { target = h; break; }
+				if (target < 0)
+					return "{\"ok\":false,\"error\":\"hotbar_full\",\"hint\":\"快捷栏满了,先整理或腾一格\"}";
+				(p.inventory[slot], p.inventory[target]) = (p.inventory[target], p.inventory[slot]);
+				hotbar = target;
+			}
+			p.selectedItem = hotbar;
+
+			// 记为常用武器(是武器才记;镐/斧/锤不算"武器")
+			if (it.damage > 0 && it.pick == 0 && it.axe == 0 && it.hammer == 0)
+				CommonWeaponType = it.type;
+
+			return "{\"ok\":true,\"slot\":" + hotbar + ",\"name\":\"" + JsonEsc(it.Name ?? "")
+				+ "\",\"common_weapon\":" + (CommonWeaponType == it.type ? "true" : "false") + "}";
+		}
+
 		static string OrganizeHotbar()
 		{
 			var p = Main.LocalPlayer;
 			if (p == null) return "{\"ok\":false,\"error\":\"no_player\"}";
 
-			// 镐:pick 最高的一把
-			int bestPickSlot = -1, bestPickPow = 0;
-			// 武器:纯武器(damage>0 且不是工具),按伤害降序取前 3 把
-			var weapons = new System.Collections.Generic.List<(int slot, int dmg)>();
+			int starfurySlot = -1;                 // 星怒
+			int bestPickSlot = -1, bestPickPow = 0; // 镐
+			var weapons = new System.Collections.Generic.List<(int slot, int dmg)>(); // 其余武器
 			for (int i = 0; i < 50 && i < p.inventory.Length; i++)
 			{
 				var it = p.inventory[i];
 				if (it == null || it.IsAir) continue;
+				if (it.type == Terraria.ID.ItemID.Starfury) { starfurySlot = i; continue; }
 				if (it.pick > bestPickPow) { bestPickPow = it.pick; bestPickSlot = i; }
 				if (it.damage > 0 && it.pick == 0 && it.axe == 0 && it.hammer == 0)
 					weapons.Add((i, it.damage));
 			}
-			weapons.Sort((a, b) => b.dmg.CompareTo(a.dmg));
+			weapons.Sort((a, b) =>
+			{
+				// 常用武器排最前,其余按伤害降序
+				bool ca = a.dmg > 0 && Main.LocalPlayer.inventory[a.slot]?.type == CommonWeaponType;
+				bool cb = b.dmg > 0 && Main.LocalPlayer.inventory[b.slot]?.type == CommonWeaponType;
+				if (ca != cb) return ca ? -1 : 1;
+				return b.dmg.CompareTo(a.dmg);
+			});
 
 			var moved = new System.Text.StringBuilder();
-			void Place(int slot, int target, string tag, int guard = 0)
+			void Swap(int slot, int target, string tag)
 			{
 				if (slot < 0 || slot == target) return;
-				var cur = p.inventory[target];
-				// 目标格如果是同类里更强的,别挤走它
-				if (cur != null && !cur.IsAir)
-				{
-					if (tag == "pick" && cur.pick > bestPickPow) return;
-					if (tag.StartsWith("weapon") && cur.damage > guard) return;
-				}
 				(p.inventory[slot], p.inventory[target]) = (p.inventory[target], p.inventory[slot]);
 				if (moved.Length > 0) moved.Append(',');
 				moved.Append(tag).Append(':').Append(slot).Append("->").Append(target);
 			}
 
-			// 镐 → 2 号位
-			Place(bestPickSlot, 2, "pick");
-
-			// 前三把武器 → 3/4/5 号位(数字键 4/5/6),切换方便
-			int[] weaponTargets = { 3, 4, 5 };
-			int guardMax = weapons.Count > 0 ? weapons[0].dmg : 0;
+			// 【顺序关键】先放低优先级的武器(4/5/6),最后放星怒(2)和镐(3)。
+			// 反过来会乱:星怒/镐放好后,武器 swap 用的是过期 slot,把已归位的星怒镐又搅走
+			int[] weaponTargets = { 4, 5, 6 };
 			for (int k = 0; k < weaponTargets.Length && k < weapons.Count; k++)
-				Place(weapons[k].slot, weaponTargets[k], "weapon" + (k + 1), guardMax);
+				Swap(weapons[k].slot, weaponTargets[k], "weapon" + (k + 1));
+
+			// 星怒 → 2 号位,镐 → 3 号位(最后放,优先级最高,谁也挤不走)
+			// 注意:上面武器 swap 可能已经把星怒/镐的位置换了,这里要【重新扫】它们的当前槽位
+			Swap(FindItemSlot(p, Terraria.ID.ItemID.Starfury), 2, "starfury");
+			Swap(FindBestPickSlot(p), 3, "pick");
 
 			if (Main.netMode == Terraria.ID.NetmodeID.MultiplayerClient)
 			{
-				foreach (int s in new[] { 2, 3, 4, 5 })
+				foreach (int s in new[] { 2, 3, 4, 5, 6 })
 					NetMessage.SendData(Terraria.ID.MessageID.SyncEquipment, number: p.whoAmI, number2: s);
 			}
 
-			return "{\"ok\":true,\"best_pick_pow\":" + bestPickPow
-				+ ",\"weapons\":\"" + string.Join(" ", weapons.Take(3).Select(w => w.dmg)) + "\""
+			return "{\"ok\":true,\"starfury\":" + (starfurySlot >= 0 ? "true" : "false")
+				+ ",\"best_pick_pow\":" + bestPickPow
 				+ ",\"moved\":\"" + moved + "\"}";
+		}
+
+		// 重新扫指定物品当前所在的槽位(前面 swap 之后位置会变,不能信旧下标)
+		static int FindItemSlot(Player p, int type)
+		{
+			for (int i = 0; i < 50 && i < p.inventory.Length; i++)
+			{
+				var it = p.inventory[i];
+				if (it != null && !it.IsAir && it.type == type) return i;
+			}
+			return -1;
+		}
+
+		// 重新扫镐力最高的镐当前槽位
+		static int FindBestPickSlot(Player p)
+		{
+			int best = -1, bestPow = 0;
+			for (int i = 0; i < 50 && i < p.inventory.Length; i++)
+			{
+				var it = p.inventory[i];
+				if (it != null && !it.IsAir && it.pick > bestPow) { bestPow = it.pick; best = i; }
+			}
+			return best;
 		}
 
 		// 要保留的高价值矿石(银/钨/金/铂金 及以上)。这些存进箱子不划算,留在背包

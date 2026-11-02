@@ -58,6 +58,8 @@ public static class PlayerCombat
     public static void Tick(Player self)
     {
         if (!Active) return;
+        // 换装窗口:agent 在换快捷栏槽位,这会儿别抓 selectedItem/controlUseItem;时长帧数暂停期间不扣
+        if (CombatPause.Active) return;
         string reason = TargetReason(self, Target);
         if (reason == "" && (!self.active || self.dead)) reason = "self_dead";
         if (reason == "" && !self.hostile) reason = "self_pvp_disabled";

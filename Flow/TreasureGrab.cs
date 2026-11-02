@@ -11,7 +11,7 @@ namespace DSTerraria
 	// 箱子到底空没空从来没人查。日志里一串 GOT 全是水分。
 	public static class TreasureGrab
 	{
-		enum Ph { Idle, Goto, Open, WaitOpen, Loot, Done }
+		enum Ph { Idle, Goto, Open, WaitOpen, Loot, Dig, Done }
 		static Ph _ph = Ph.Idle;
 
 		static int _tx, _ty;        // 调用方给的格(箱子任意一格)
@@ -24,6 +24,7 @@ namespace DSTerraria
 		// 443 格的目标 30 秒判失败,整趟一个都没拿到。
 		const int MaxGoto = 60 * 30;
 		const int LootWait = 30;       // LootAll 之后等几帧再验收。掏空是当帧做的,给点余量
+		const int DigMaxFrames = 60 * 20;  // 掏空后挖箱子最多挥 20 秒,挖不掉就放弃(报 partial)
 
 		public static bool IsRunning => _ph != Ph.Idle && _ph != Ph.Done;
 		public static (int x, int y) At => (_tx, _ty);   // 这一趟开的是哪一格,调用方记账要用
@@ -177,7 +178,7 @@ namespace DSTerraria
 						if (ow == "pending") { _lootFrames = 0; _ph = Ph.WaitOpen; return; }
 						if (_idx < 0) { Fail(ow); return; }
 						int before = ItemsLeft();
-						if (before == 0) { Done("本来就是空的"); return; }
+						if (before == 0) { StartDig(); return; }
 						DiagLog.Write($"[grab] 开了 idx={_idx} 里面{before}件");
 						// 掏之前腾格子:背包满了 LootAll 会把塞不下的原样写回箱子
 						KeepList.MakeRoom(LootRoom);
@@ -200,7 +201,7 @@ namespace DSTerraria
 					{
 						_lootFrames++;
 						int left = ItemsLeft();
-						if (left == 0) { Done("掏空了"); return; }
+						if (left == 0) { StartDig(); return; }
 						if (_lootFrames < LootWait) return;
 						// 还有剩:多半是背包塞不下。再腾一次再掏,还剩就如实报,别当成功
 						if (_lootFrames == LootWait)
@@ -218,7 +219,41 @@ namespace DSTerraria
 						}
 						return;
 					}
+
+				case Ph.Dig:
+					{
+						// 掏空后用镐把箱子挖走。ItemUseCoordinator 自己切镐/瞄准/挥到挖掉
+						_digFrames++;
+						if (ItemUseCoordinator.IsActive) return;  // 还在挥
+						if (ItemUseCoordinator.Outcome == "removed")
+						{
+							Done("掏空并挖走了箱子");
+							return;
+						}
+						// 挖不掉(镐不够/卡住)或超时:箱子已经掏空,东西到手,别当失败
+						if (_digFrames > DigMaxFrames || ItemUseCoordinator.Outcome is "no_progress" or "timeout")
+						{
+							Done("掏空了,但箱子没挖掉:" + ItemUseCoordinator.Reason);
+							return;
+						}
+						return;
+					}
 			}
+		}
+
+		static int _digFrames;
+
+		// 掏空后转挖箱子:先关箱,再对锚点格用镐挖(ItemUseCoordinator 自动选镐)
+		static void StartDig()
+		{
+			CloseChest();
+			_digFrames = 0;
+			DiagLog.Write($"[grab] 掏空了,开始挖箱子 ({_ax},{_ay})");
+			ItemUseCoordinator.Start(new ItemUseRequest
+			{
+				TargetWx = _ax, TargetWy = _ay, Slot = -1, DurationTicks = 0, Strict = true
+			});
+			_ph = Ph.Dig;
 		}
 
 		const int LootRoom = 8;   // 掏之前腾几格。箱子 40 格但大多是零头,腾太多等于白删建材

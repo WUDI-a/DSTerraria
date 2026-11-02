@@ -7,8 +7,10 @@ namespace DSTerraria;
 // 只负责派活和接管战斗反射层开关,执行仍走原有工具循环。
 public class AutoPilot : ModSystem
 {
-	// 空闲 5 秒后才派下一个目标,给玩家打断和收尾留窗口
-	const int IdleDelayTicks = 300;
+	// 空闲 2 秒后才派下一个目标,给玩家打断和收尾留窗口
+	const int IdleDelayTicks = 120;
+	// 首次(/start 后第一轮)只等 1 秒,尽快把装备和背包状况交给他
+	const int FirstDelayTicks = 60;
 	// 失败后至少等这么久再试,免得没配 key 时刷屏
 	const int RetryDelayTicks = 1200;
 	const string Goal =
@@ -19,15 +21,18 @@ public class AutoPilot : ModSystem
 		"探索洞穴、开箱、拿生命水晶 -> 用 wiki 查并合成 boss 召唤物 -> 战前准备(药水、场地、平台)后召唤 boss。" +
 		"boss 战的走位和挥击由战斗层自动负责,你负责召唤、补给、战前准备和撤离恢复。" +
 		"一次只推进一小步:先看 state 和 track 台账再动手。同一件事失败两次就换更早的一步,不要原地重试。" +
+		"开局第一件事:看 state.armor_slots(身上穿的装备饰品)和 inventory_slots(快捷栏+背包),搞清楚自己现在穿什么、有什么武器和材料,再决定第一步做什么。后续每轮也先扫一眼 armor_slots,发现光着或装备老旧就优先补上。" +
 		"要回地面、回基地、回出生点时,用 use_item 对自己用魔镜(魔镜固定在快捷栏最后一格 slot=9),不要走路爬绳梯。" +
 		"挖矿/赶路时系统每 3 秒扫附近,发现宝箱/生命水晶/稀有矿石会中断原语提醒你(outcome=interrupted_by_opportunity):顺路就近开箱(interact+loot_all)、挖水晶、mine_vein 挖稀有矿,不值得就继续主线。" +
-		"长期习惯:背包快满就魔镜回家,interact 开箱后 store_inventory 一键存(自动保留银矿金矿铂金矿及以上,低级矿和杂物进箱);快捷栏 0-9 一般不动,除非合成/捡到更高级同类再换;遇宝箱必开,开完用镐把空箱子挖走;捡到更好的镐/武器就 organize_hotbar 归位(镐放 2 号位,前 3 把武器放 3/4/5 号位)。" +
+		"长期习惯:背包快满就魔镜回家,interact 开箱后 store_inventory 一键存(自动保留银矿金矿铂金矿及以上,低级矿和杂物进箱);星标物品一律不搬进箱子;快捷栏 0-9 一般不动,除非合成/捡到更高级同类再换;地表以上的箱子是家里存储箱,不许挖只能放东西,地表以下的野外宝箱才能开完挖走;捡到更好的武器/镐就 organize_hotbar 归位(星怒放 2 号位,镐放 3 号位,其余武器放 4/5/6 号位)。" +
 		"刚做出或捡到护甲/饰品/更好的武器工具,立刻 equip_item 穿上或挪快捷栏,别裸奔。" +
 		"每轮的正文都必须说一句话,一两句就够,哪怕只是'在挖矿';连续沉默不允许。";
 
 	static long _idleAt = -1;
 	// 【不能给 int.MinValue】now - MinValue 会溢出成负数,守卫永远过不去,autopilot 就永远不派发
 	static long _lastSubmit = -1_000_000;
+	// /start 之后的第一轮用短延迟(1s),之后恢复常规 5s 窗口
+	static bool _firstSubmit;
 	static bool _wasOn;
 	static bool _warned;
 	// Status 拦截的诊断只打一次,变了才再打,免得刷屏
@@ -52,6 +57,7 @@ public class AutoPilot : ModSystem
 		Launched = true;
 		_idleAt = -1;
 		_lastSubmit = -1_000_000;
+		_firstSubmit = true;
 		_busySaid = "";
 		// 退出世界时 stop 设的人工残留,一并清掉
 		if (Manual.On) Manual.On = false;
@@ -62,6 +68,7 @@ public class AutoPilot : ModSystem
 	{
 		// 换世界不延续上一局的启动状态
 		Launched = false;
+		_firstSubmit = true;
 		// 退出世界时 Run("stop") 会把 Manual.On 设成 true,新世界进来战斗反射层
 		// 全被"人工"挡住。这个残留无条件清掉;玩家中途按 P 不受影响
 		if (Manual.On)
@@ -132,9 +139,12 @@ public class AutoPilot : ModSystem
 		long now = Main.GameUpdateCount;
 		if (now - _lastSubmit < RetryDelayTicks) return;
 		if (_idleAt < 0) { _idleAt = now; return; }
-		if (now - _idleAt < IdleDelayTicks) return;
+		// 首轮等 1 秒就派(尽快把装备/背包状况交出去),之后每轮等 2 秒留打断窗口
+		int delay = _firstSubmit ? FirstDelayTicks : IdleDelayTicks;
+		if (now - _idleAt < delay) return;
 		_idleAt = -1;
 		_lastSubmit = now;
+		_firstSubmit = false;
 		DiagLog.Write("[autopilot] 派发自主目标");
 		NativeAgent.Submit(Goal);
 	}

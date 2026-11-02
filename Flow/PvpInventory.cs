@@ -112,4 +112,65 @@ public static class PvpInventory
             ["after"] = new JsonObject { ["src"] = ItemState(self.inventory[src]), ["target"] = ItemState(self.inventory[target]) },
             ["selected"] = true };
     }
+
+    // switch_item:切到指定武器并选中。给 name(中文/英文名)或 slot。
+    // 武器在快捷栏(0-9)直接选中;在背包(10-49)则:先找快捷栏空位(优先4),没空位就把快捷栏里的
+    // 非武器物品换下来挤回背包原位置。切完记为常用武器(organize_hotbar 已弃用,此标记供将来用)
+    public static JsonObject SwitchTo(JsonObject args)
+    {
+        var self = Main.LocalPlayer;
+        if (self == null) return new JsonObject { ["error"] = "no_player" };
+
+        // 定位武器:优先 slot,否则按 name/item 在 0-49 里找
+        int slot = args["slot"]?.GetValue<int>() ?? -1;
+        string want = args["name"]?.GetValue<string>() ?? args["item"]?.GetValue<string>();
+        if (slot < 0 && want != null)
+            for (int i = 0; i < 50 && i < self.inventory.Length; i++)
+            {
+                var it = self.inventory[i];
+                if (it == null || it.IsAir) continue;
+                if ((it.Name ?? "") == want
+                    || (ItemID.Search.ContainsName(want) && ItemID.Search.GetId(want) == it.type))
+                { slot = i; break; }
+            }
+        if (slot < 0 || slot >= 50 || slot >= self.inventory.Length)
+            return new JsonObject { ["error"] = "not_found", ["hint"] = "背包和快捷栏里都没找到这个武器" };
+
+        var item = self.inventory[slot];
+        if (item == null || item.IsAir)
+            return new JsonObject { ["error"] = "empty_slot", ["slot"] = slot };
+
+        bool IsWeapon(Item x) => x != null && !x.IsAir && x.damage > 0
+            && x.pick == 0 && x.axe == 0 && x.hammer == 0;
+
+        // 在快捷栏直接选中;在背包则换进快捷栏
+        int hotbar = slot;
+        if (slot >= 10)
+        {
+            int target = -1;
+            if (self.inventory[4] == null || self.inventory[4].IsAir) target = 4;
+            else for (int h = 0; h < 10; h++)
+                    if (self.inventory[h] == null || self.inventory[h].IsAir) { target = h; break; }
+            if (target < 0)  // 没空位:换下快捷栏里的非武器
+                for (int h = 0; h < 10; h++)
+                    if (!IsWeapon(self.inventory[h])) { target = h; break; }
+            if (target < 0)
+                return new JsonObject { ["error"] = "hotbar_full", ["hint"] = "快捷栏全是武器,没位置也换不动" };
+            (self.inventory[slot], self.inventory[target]) = (self.inventory[target], self.inventory[slot]);
+            if (Main.netMode == NetmodeID.MultiplayerClient)
+            {
+                NetMessage.SendData(MessageID.SyncEquipment, number: self.whoAmI, number2: slot);
+                NetMessage.SendData(MessageID.SyncEquipment, number: self.whoAmI, number2: target);
+            }
+            PvpDuel.InventoryChanged();
+            hotbar = target;
+        }
+        self.selectedItem = hotbar;
+
+        if (IsWeapon(item))
+            HttpServerSystem.CommonWeaponType = item.type;
+
+        return new JsonObject { ["ok"] = true, ["slot"] = hotbar, ["name"] = item.Name,
+            ["common_weapon"] = HttpServerSystem.CommonWeaponType == item.type };
+    }
 }

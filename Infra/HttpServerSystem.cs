@@ -649,29 +649,16 @@ namespace DSTerraria
 			}
 			else if (path == "/switch_item")
 			{
-				// 切到指定武器/物品所在栏位,并把它记为"常用武器"。入参 {name:"..."} 或 {slot:N}
-				// 切完开 3 秒换装窗口,不然战斗下一帧就把 selectedItem 改回它挑的武器
+				// 切到指定武器/物品所在栏位并选中。入参 {name:"..."} 或 {slot:N}。
+				// 逻辑统一在 PvpInventory.SwitchTo(查找+换位+选中+记常用),这里只开换装窗口
 				CombatPause.ForSeconds(3f);
 				string rb = payload.Replace(" ", "");
+				var ja = new System.Text.Json.Nodes.JsonObject();
 				var slotM = System.Text.RegularExpressions.Regex.Match(rb, "\"slot\"\\s*:\\s*(-?\\d+)");
 				var nameM = System.Text.RegularExpressions.Regex.Match(payload, "\"name\"\\s*:\\s*\"([^\"]+)\"");
-				int slot = slotM.Success ? int.Parse(slotM.Groups[1].Value) : -1;
-				if (slot < 0 && nameM.Success)
-				{
-					string want = nameM.Groups[1].Value;
-					var p0 = Main.LocalPlayer;
-					if (p0 != null)
-						for (int i = 0; i < 50 && i < p0.inventory.Length; i++)
-						{
-							var it = p0.inventory[i];
-							if (it == null || it.IsAir) continue;
-							if ((it.Name ?? "") == want
-								|| (Terraria.ID.ItemID.Search.ContainsName(want)
-									&& Terraria.ID.ItemID.Search.GetId(want) == it.type))
-							{ slot = i; break; }
-						}
-				}
-				body = SwitchItem(slot);
+				if (slotM.Success) ja["slot"] = int.Parse(slotM.Groups[1].Value);
+				if (nameM.Success) ja["name"] = nameM.Groups[1].Value;
+				body = PvpInventory.SwitchTo(ja).ToJsonString();
 			}
 			else if (path == "/hotbar_place")
 			{
@@ -4030,51 +4017,6 @@ namespace DSTerraria
 		// 常用武器(玩家/模型点过名要用的那把)。记 type,organize_hotbar 优先把它放武器区第一格。
 		// 单次会话内存态,不写配置
 		public static int CommonWeaponType = -1;
-
-		// 切到指定武器/物品所在槽,并记为常用武器。参数 slot 或 name 已在上层解析好。
-		// 武器在背包(10-49)时:先找快捷栏空位;没空位就把快捷栏里的【非武器】物品换下来(挤到背包原位置),
-		// 保证武器上得了快捷栏。非武器物品换下后回背包,不丢东西
-		static string SwitchItem(int slot)
-		{
-			var p = Main.LocalPlayer;
-			if (p == null) return "{\"ok\":false,\"error\":\"no_player\"}";
-			if (slot < 0 || slot >= 50 || slot >= p.inventory.Length)
-				return "{\"ok\":false,\"error\":\"not_found\",\"hint\":\"背包里没找到这个武器\"}";
-			var it = p.inventory[slot];
-			if (it == null || it.IsAir)
-				return "{\"ok\":false,\"error\":\"empty_slot\",\"slot\":" + slot + "}";
-
-			bool IsWeapon(Item x) => x != null && !x.IsAir && x.damage > 0
-				&& x.pick == 0 && x.axe == 0 && x.hammer == 0;
-
-			// 切到该槽(0-9 直接选,10+ 换进快捷栏)
-			int hotbar = slot;
-			if (slot >= 10)
-			{
-				// 1) 先找快捷栏空位(优先 4 号武器区)
-				int target = -1;
-				if (p.inventory[4] == null || p.inventory[4].IsAir) target = 4;
-				else for (int h = 0; h < 10; h++)
-						if (p.inventory[h] == null || p.inventory[h].IsAir) { target = h; break; }
-				// 2) 没空位 → 找快捷栏里的非武器物品(镐/斧/锤/杂物/方块都算),把它换下来
-				if (target < 0)
-					for (int h = 0; h < 10; h++)
-						if (!IsWeapon(p.inventory[h])) { target = h; break; }
-				if (target < 0)
-					return "{\"ok\":false,\"error\":\"hotbar_full\",\"hint\":\"快捷栏全是武器,没位置也换不动\"}";
-				// 武器换进快捷栏 target,原来那格(非武器)换回背包 slot
-				(p.inventory[slot], p.inventory[target]) = (p.inventory[target], p.inventory[slot]);
-				hotbar = target;
-			}
-			p.selectedItem = hotbar;
-
-			// 记为常用武器(是武器才记;镐/斧/锤不算"武器")
-			if (IsWeapon(it))
-				CommonWeaponType = it.type;
-
-			return "{\"ok\":true,\"slot\":" + hotbar + ",\"name\":\"" + JsonEsc(it.Name ?? "")
-				+ "\",\"common_weapon\":" + (CommonWeaponType == it.type ? "true" : "false") + "}";
-		}
 
 		static string OrganizeHotbar()
 		{

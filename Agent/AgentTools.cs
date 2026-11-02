@@ -440,7 +440,23 @@ public static class AgentTools
                 result = await Call("/equip_item", args, token);
                 break;
             case "switch_item":
-                result = await Call("/switch_item", args, token);
+                // 【先暂停所有武器/工具,再等挥舞结束,再切】。被要求用某武器时,切换过程中
+                // 不能有旧武器/镐/斧还在挥(会干扰选中),战斗层每帧也会重写 selectedItem。
+                // CombatPause 停 NPC 战斗;ItemUseCoordinator/MineCoordinator.Stop 停采集工具
+                await NativeAgent.OnMain(() =>
+                {
+                    CombatPause.ForSeconds(5f);
+                    ItemUseCoordinator.Stop();
+                    MineCoordinator.Stop();
+                    return true;
+                }, token);
+                var swClock = Stopwatch.StartNew();
+                while (swClock.Elapsed.TotalSeconds < 2 && !await NativeAgent.OnMain(() => Main.LocalPlayer.dead
+                    || Main.LocalPlayer.itemAnimation == 0 && Main.LocalPlayer.itemTime == 0, token))
+                    await Task.Delay(50, token);
+                result = await NativeAgent.OnMain(() => PvpInventory.SwitchTo(args), token);
+                if (result["error"] == null)
+                    await NativeAgent.OnMain(() => { CombatPause.ForSeconds(3f); return true; }, token);
                 break;
             case "store_inventory":
                 result = await Call("/store_inventory", null, token);

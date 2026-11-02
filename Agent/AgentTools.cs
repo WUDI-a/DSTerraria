@@ -191,7 +191,7 @@ public static class AgentTools
         return final;
     }
 
-    const long OpportunityEveryMs = 3000;
+    const long OpportunityEveryMs = 5000;
 
     // 值得拐一趟的稀有矿石(银/钨/金/铂金及以上),扫到就报。铜铁铅锡这种满大街的不报
     static readonly System.Collections.Generic.HashSet<int> RareOres = new()

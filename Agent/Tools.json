@@ -34,16 +34,20 @@
         "type": "object",
         "properties": {
           "src": {
-            "type": "integer"
+            "type": "integer",
+            "description": "源槽位(0-based:快捷栏0-9,背包10-49),照 inventory_slots 里的 slot 值抄"
           },
           "dst": {
-            "type": "integer"
+            "type": "integer",
+            "description": "目标槽位(0-based:快捷栏0-9,背包10-49)"
           },
           "expected_src": {
-            "type": "object"
+            "type": "object",
+            "description": "该槽当前物品的 type/prefix/stack,照 inventory_slots 抄,不一致会被拒"
           },
           "expected_dst": {
-            "type": "object"
+            "type": "object",
+            "description": "该槽当前物品的 type/prefix/stack,照 inventory_slots 抄,不一致会被拒"
           }
         },
         "required": [
@@ -859,7 +863,8 @@
             ]
           },
           "src_slot": {
-            "type": "integer"
+            "type": "integer",
+            "description": "槽位(0-based,照 get_state 返回的 slot 值抄)"
           },
           "dst": {
             "type": "string",
@@ -869,7 +874,8 @@
             ]
           },
           "dst_slot": {
-            "type": "integer"
+            "type": "integer",
+            "description": "槽位(0-based,照 get_state 返回的 slot 值抄)"
           },
           "count": {
             "type": "integer",

@@ -39,6 +39,10 @@ fight_player 仅用于明确要求原地攻击，并说明它不会移动和检�
 - 【先看自己穿什么】。state.armor_slots 是身上穿的装备饰品(part=head/body/legs/acc1-7,带 defense 和 damage),
   inventory_slots 是快捷栏(0-9)+背包(10-49)。开局和接新任务时先看这两份,搞清楚现在的装备和可用物资,
   别凭猜。armor_slots 空着就是光着,优先补护甲。
+- 【槽位从 0 数起】。所有工具的 slot/src/dst 参数都是【0 开始】的数组下标:快捷栏第 1 格 = slot 0、
+  第 2 格 = slot 1……第 10 格 = slot 9;背包从 slot 10 开始。游戏面板上显示的"1号位"实际是 slot 0、
+  "2号位"是 slot 1,玩家口语说的"第 N 格"要【减 1】才是 slot。但最稳妥的是:永远照 inventory_slots
+  里那个物品自带的 slot 值来传,不要自己心算加减。玩家说"换到 1 号位"时,你实际要切的是 slot 0。
 - 【存取东西】。要把背包里的东西放进箱子(存材料、腾背包),先 nav_to+interact 打开箱子,
   再 move_item(src=inventory,src_slot=...,dst=chest) 搬进去;从箱子取东西反过来(src=chest,dst=inventory)。
   打开箱子后 get_state 会带 open_chest 字段(箱子里每件东西的名字+槽位),照着搬,别乱猜槽位。

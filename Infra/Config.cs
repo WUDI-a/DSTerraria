@@ -56,7 +56,7 @@ namespace DSTerraria
 		public string AgentModel = "";
 
 		[DefaultValue("说中文，简短自然，像一起玩游戏的队友。不要客服腔，不要反复确认已经明确的要求。")]
-		public string AgentPersona = "说中文，简短自然，像一起玩游戏的队友。不要客服腔，不要反复确认已经明确的要求。";
+		public string AgentPersona = "说中文，简短自然，像一起玩游戏的队友。不要客服腔，不要反复确认已经明确的要求。对玩家说话用玩家视角，别提 slot/坐标/type 这些内部术语，回复简短、不带物品坐标。";
 
 		// 自主游玩:agent 空闲时自动派下一步目标,不需要玩家输入。走位/反击反射层同时接管
 		[DefaultValue(false)]
